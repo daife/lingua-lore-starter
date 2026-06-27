@@ -83,6 +83,16 @@ button {
   transform: translateX(100%);
 }
 
+.panel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 19;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  touch-action: manipulation;
+}
+
 .reader-swipe-zone,
 .panel-swipe-zone {
   position: absolute;
@@ -96,7 +106,7 @@ button {
 .reader-swipe-zone {
   left: 0;
   right: 0;
-  z-index: 19;
+  z-index: 17;
 }
 
 .panel-swipe-zone {
@@ -357,6 +367,9 @@ select:focus {
 .world-list {
   display: grid;
   flex: 1;
+  align-content: start;
+  align-items: start;
+  grid-auto-rows: max-content;
   gap: 10px;
   min-height: 0;
   overflow-y: auto;

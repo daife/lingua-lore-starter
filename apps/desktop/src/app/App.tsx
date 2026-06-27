@@ -1,4 +1,4 @@
-import { type MouseEvent, type MutableRefObject, type PointerEvent, useEffect, useRef, useState } from "react";
+import { type MutableRefObject, type PointerEvent, useEffect, useRef, useState } from "react";
 import { BookOpen, Library, Settings } from "lucide-react";
 import { WorldLibraryPage } from "../pages/WorldLibraryPage";
 import { ReaderPage } from "../pages/ReaderPage";
@@ -29,7 +29,6 @@ export function App() {
   const readerSwipeStart = useRef<{ x: number; y: number } | null>(null);
   const librarySwipeStart = useRef<{ x: number; y: number } | null>(null);
   const settingsSwipeStart = useRef<{ x: number; y: number } | null>(null);
-  const ignoreNextShellClickRef = useRef(false);
 
   useEffect(() => {
     void (async () => {
@@ -82,11 +81,9 @@ export function App() {
   function handleReaderSwipeEnd(event: PointerEvent<HTMLElement>) {
     const deltaX = readHorizontalSwipe(readerSwipeStart, event);
     if (deltaX > 0) {
-      ignoreNextShellClickRef.current = true;
       setLibraryOpen(true);
       setSettingsOpen(false);
     } else if (deltaX < 0) {
-      ignoreNextShellClickRef.current = true;
       setSettingsOpen(true);
       setLibraryOpen(false);
     }
@@ -95,7 +92,6 @@ export function App() {
   function handleLibrarySwipeEnd(event: PointerEvent<HTMLElement>) {
     const deltaX = readHorizontalSwipe(librarySwipeStart, event);
     if (deltaX < 0) {
-      ignoreNextShellClickRef.current = true;
       setLibraryOpen(false);
     }
   }
@@ -103,23 +99,13 @@ export function App() {
   function handleSettingsSwipeEnd(event: PointerEvent<HTMLElement>) {
     const deltaX = readHorizontalSwipe(settingsSwipeStart, event);
     if (deltaX > 0) {
-      ignoreNextShellClickRef.current = true;
       setSettingsOpen(false);
     }
   }
 
-  function handleShellClick(event: MouseEvent<HTMLElement>) {
-    if (ignoreNextShellClickRef.current) {
-      ignoreNextShellClickRef.current = false;
-      return;
-    }
-    const target = event.target as HTMLElement;
-    if (libraryOpen && !target.closest(".sidebar")) {
-      setLibraryOpen(false);
-    }
-    if (settingsOpen && !target.closest(".inspector")) {
-      setSettingsOpen(false);
-    }
+  function closeSidePanels() {
+    setLibraryOpen(false);
+    setSettingsOpen(false);
   }
 
   return (
@@ -129,8 +115,15 @@ export function App() {
         libraryOpen ? "" : "library-collapsed",
         settingsOpen ? "" : "settings-collapsed"
       ].filter(Boolean).join(" ")}
-      onClick={handleShellClick}
     >
+      {libraryOpen || settingsOpen ? (
+        <button
+          className="panel-backdrop"
+          type="button"
+          aria-label={t("closeSidePanels")}
+          onPointerDown={closeSidePanels}
+        />
+      ) : null}
       <aside className="sidebar" aria-label={t("worldLibrary")} aria-hidden={!libraryOpen}>
         <div
           className="panel-swipe-zone"
