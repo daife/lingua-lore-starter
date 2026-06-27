@@ -35,23 +35,46 @@ fn parse_youdao_response(
     let mut phrases = Vec::new();
     let mut examples = Vec::new();
 
-    let preferred_dictionary = if is_chinese_language(source_language) && is_english_language(target_language) {
+    let preferred_dictionary =
+        if is_chinese_language(source_language) && is_english_language(target_language) {
+            "ce"
+        } else {
+            "ec"
+        };
+    let fallback_dictionary = if preferred_dictionary == "ec" {
         "ce"
     } else {
         "ec"
     };
-    let fallback_dictionary = if preferred_dictionary == "ec" { "ce" } else { "ec" };
 
     if let Some(word) = first_dictionary_word(&json, preferred_dictionary)
         .or_else(|| first_dictionary_word(&json, fallback_dictionary))
     {
-        us_phone = word.get("usphone").and_then(Value::as_str).unwrap_or("").to_string();
-        uk_phone = word.get("ukphone").and_then(Value::as_str).unwrap_or("").to_string();
+        us_phone = word
+            .get("usphone")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
+        uk_phone = word
+            .get("ukphone")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string();
         if let Some(trs) = word.get("trs").and_then(Value::as_array) {
             let meanings = trs
                 .iter()
-                .flat_map(|tr_obj| tr_obj.get("tr").and_then(Value::as_array).into_iter().flatten())
-                .filter_map(|tr| tr.get("l").and_then(|l| l.get("i")).and_then(Value::as_array))
+                .flat_map(|tr_obj| {
+                    tr_obj
+                        .get("tr")
+                        .and_then(Value::as_array)
+                        .into_iter()
+                        .flatten()
+                })
+                .filter_map(|tr| {
+                    tr.get("l")
+                        .and_then(|l| l.get("i"))
+                        .and_then(Value::as_array)
+                })
                 .map(|items| {
                     items
                         .iter()
@@ -72,7 +95,13 @@ fn parse_youdao_response(
     {
         for word_obj in rels
             .iter()
-            .flat_map(|rel| rel.get("rel").and_then(|r| r.get("words")).and_then(Value::as_array).into_iter().flatten())
+            .flat_map(|rel| {
+                rel.get("rel")
+                    .and_then(|r| r.get("words"))
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+            })
             .take(20)
         {
             if let Some(key) = word_obj.get("word").and_then(Value::as_str) {

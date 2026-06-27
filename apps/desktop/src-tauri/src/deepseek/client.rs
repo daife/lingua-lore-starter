@@ -35,6 +35,7 @@ impl DeepSeekClient {
         if !status.is_success() {
             return Err(anyhow!("DeepSeek request failed with {status}: {text}"));
         }
-        serde_json::from_str(&text).map_err(|err| anyhow!("invalid DeepSeek response: {err}; body={text}"))
+        serde_json::from_str(&text)
+            .map_err(|err| anyhow!("invalid DeepSeek response: {err}; body={text}"))
     }
 }
