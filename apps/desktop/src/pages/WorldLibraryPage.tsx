@@ -1,8 +1,69 @@
 import { ChevronDown, Plus, Sparkles, Trash2 } from "lucide-react";
-import { ChangeEvent, FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { api } from "../lib/tauri";
 import type { CreateWorldRequest } from "../lib/types";
 import { useAppStore } from "../stores/useAppStore";
+
+interface DropdownProps {
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+  placeholder: string;
+  disabled?: boolean;
+  allowFreeText?: boolean;
+}
+
+function Dropdown({ value, options, onChange, placeholder, disabled, allowFreeText = true }: DropdownProps) {
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    function handlePointerDown(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [open]);
+
+  return (
+    <div className="dropdown" ref={wrapperRef}>
+      <button
+        type="button"
+        className="dropdown-trigger"
+        disabled={disabled}
+        onClick={() => setOpen((state) => !state)}
+      >
+        <span className={value ? "dropdown-value" : "dropdown-value placeholder"}>
+          {value || placeholder}
+        </span>
+        <ChevronDown size={16} className={open ? "dropdown-caret open" : "dropdown-caret"} />
+      </button>
+      {open ? (
+        <ul className="dropdown-menu">
+          {options.map((option) => (
+            <li key={option}>
+              <button
+                type="button"
+                className={option === value ? "dropdown-option active" : "dropdown-option"}
+                onClick={() => {
+                  onChange(option);
+                  setOpen(false);
+                }}
+              >
+                {option}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
 
 const WORLD_GENRES = [
   "玄幻",
@@ -32,7 +93,8 @@ const WORLD_GENRES = [
   "娱乐圈",
   "快穿",
   "星际",
-  "末世"
+  "末世",
+  "自定义"
 ];
 
 const TARGET_LANGUAGES = [
@@ -66,8 +128,8 @@ export function WorldLibraryPage() {
   const [creating, setCreating] = useState(false);
   const [drafting, setDrafting] = useState(false);
   const [showGenrePicker, setShowGenrePicker] = useState(false);
-  const [showGenreOptions, setShowGenreOptions] = useState(false);
   const [genreInput, setGenreInput] = useState("");
+  const [customGenre, setCustomGenre] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState(DEFAULT_WORLD_FORM.target_language);
   const [formValues, setFormValues] = useState<CreateWorldRequest>(DEFAULT_WORLD_FORM);
 
@@ -122,7 +184,7 @@ export function WorldLibraryPage() {
     setOpenForm(true);
     setDrafting(true);
     try {
-      const genre = genreInput.trim();
+      const genre = genreInput === "自定义" ? customGenre.trim() : genreInput.trim();
       if (!genre) {
         return;
       }
@@ -132,6 +194,7 @@ export function WorldLibraryPage() {
       });
       setFormValues(draft);
       setShowGenrePicker(false);
+      setCustomGenre("");
     } catch (err) {
       setError(String(err));
     } finally {
@@ -169,52 +232,36 @@ export function WorldLibraryPage() {
       {showGenrePicker ? (
         <div className="ai-fill-panel">
           <div className="ai-fill-controls">
-            <input
+            <Dropdown
               value={genreInput}
-              onChange={(event) => setGenreInput(event.target.value)}
+              options={WORLD_GENRES}
+              onChange={(value) => {
+                setGenreInput(value);
+                if (value !== "自定义") {
+                  setCustomGenre("");
+                }
+              }}
               placeholder="Genre"
               disabled={drafting}
             />
-            <button
-              className="command-button compact"
-              type="button"
-              onClick={() => setShowGenreOptions((value) => !value)}
-              disabled={drafting}
-            >
-              <ChevronDown size={16} />
-              Choose
-            </button>
-            <select
+            <Dropdown
               value={selectedLanguage}
-              onChange={(event) => setSelectedLanguage(event.target.value)}
+              options={TARGET_LANGUAGES}
+              onChange={setSelectedLanguage}
+              placeholder="Language"
               disabled={drafting}
-            >
-              {TARGET_LANGUAGES.map((language) => (
-                <option key={language} value={language}>
-                  {language}
-                </option>
-              ))}
-            </select>
+            />
           </div>
-          {showGenreOptions ? (
-            <div className="genre-options">
-              {WORLD_GENRES.map((genre) => (
-                <button
-                  className="genre-chip"
-                  key={genre}
-                  type="button"
-                  onClick={() => {
-                    setGenreInput(genre);
-                    setShowGenreOptions(false);
-                  }}
-                  disabled={drafting}
-                >
-                  {genre}
-                </button>
-              ))}
-            </div>
+          {genreInput === "自定义" ? (
+            <input
+              className="custom-genre-input"
+              placeholder="Please enter your custom genre"
+              value={customGenre}
+              onChange={(event) => setCustomGenre(event.target.value)}
+              disabled={drafting}
+            />
           ) : null}
-          <button className="primary-button" onClick={() => void generateDraft()} disabled={drafting || !genreInput.trim()}>
+          <button className="primary-button" onClick={() => void generateDraft()} disabled={drafting || !genreInput.trim() || (genreInput === "自定义" && !customGenre.trim())}>
             <Sparkles size={16} />
             {drafting ? "Filling..." : "Generate draft"}
           </button>

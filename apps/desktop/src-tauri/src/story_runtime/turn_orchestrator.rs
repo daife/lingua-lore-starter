@@ -4,7 +4,7 @@ use tokio::time::{sleep, Duration};
 use crate::deepseek::{
     ChatCompletionRequest, ChatCompletionResponse, ChatMessage, DeepSeekClient, ResponseFormat,
 };
-use crate::domain::{ApiProfile, StoryTurnInput, StoryTurnResult};
+use crate::domain::{ApiProfile, StoryTurnInput, StoryTurnPreview, StoryTurnResult, TurnOutput};
 use crate::storage::AppState;
 use crate::story_runtime::context_loader::load_context;
 use crate::story_runtime::output_parser::parse_turn_output;
@@ -13,11 +13,11 @@ use crate::story_runtime::prompt_builder::build_messages;
 use crate::tool_runtime::{execute_readonly, read_only_tool_definitions};
 use crate::turn_commit::committer::commit_turn;
 
-pub async fn send_story_turn(
+pub async fn preview_story_turn(
     state: &AppState,
     api_profile: ApiProfile,
     input: StoryTurnInput,
-) -> Result<StoryTurnResult> {
+) -> Result<StoryTurnPreview> {
     let conn = state.open_world_conn(&input.world_id)?;
     let context = load_context(&conn, &input)?;
     let mut messages = build_messages(&context)?;
@@ -82,8 +82,11 @@ pub async fn send_story_turn(
             Ok(output)
         }) {
             Ok(output) => {
-                let result = commit_turn(&conn, &input, output, &content)?;
-                return Ok(result);
+                return Ok(StoryTurnPreview {
+                    input,
+                    raw_output_json: content,
+                    output,
+                });
             }
             Err(err) if attempt < 2 => {
                 messages.push(ChatMessage::user(format!(
@@ -95,6 +98,29 @@ pub async fn send_story_turn(
     }
 
     Err(anyhow!("Failed to generate a valid story turn"))
+}
+
+pub fn commit_story_turn_preview(
+    state: &AppState,
+    preview: StoryTurnPreview,
+) -> Result<StoryTurnResult> {
+    validate_turn_output(&preview.output)?;
+    commit_story_turn_output(
+        state,
+        &preview.input,
+        preview.output,
+        &preview.raw_output_json,
+    )
+}
+
+fn commit_story_turn_output(
+    state: &AppState,
+    input: &StoryTurnInput,
+    output: TurnOutput,
+    raw_output_json: &str,
+) -> Result<StoryTurnResult> {
+    let conn = state.open_world_conn(&input.world_id)?;
+    commit_turn(&conn, input, output, raw_output_json)
 }
 
 async fn chat_completion_with_retries(

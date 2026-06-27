@@ -132,6 +132,13 @@ pub struct StoryTurnResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StoryTurnPreview {
+    pub input: StoryTurnInput,
+    pub raw_output_json: String,
+    pub output: TurnOutput,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TranslationResult {
     pub source_text: String,
     pub translated_text: String,

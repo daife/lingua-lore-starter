@@ -3,6 +3,8 @@ import type {
   ApiProfile,
   CreateWorldRequest,
   GenerateWorldDraftRequest,
+  StoryTurnPreview,
+  StoryTurnRequest,
   StoryTurnResult,
   TranslationResult,
   WorldBootstrap,
@@ -19,11 +21,10 @@ export const api = {
     invoke<WorldBootstrap>("get_world_bootstrap", { worldId }),
   getApiProfile: () => invoke<ApiProfile | null>("get_api_profile"),
   saveApiProfile: (profile: ApiProfile) => invoke<ApiProfile>("save_api_profile", { profile }),
-  sendStoryTurn: (input: {
-    world_id: string;
-    scene_id: string;
-    input: { kind: "choice"; choice_id: string } | { kind: "free_text"; text: string };
-  }) => invoke<StoryTurnResult>("send_story_turn", { input }),
+  previewStoryTurn: (input: StoryTurnRequest) =>
+    invoke<StoryTurnPreview>("preview_story_turn", { input }),
+  commitStoryTurnPreview: (preview: StoryTurnPreview) =>
+    invoke<StoryTurnResult>("commit_story_turn_preview", { preview }),
   translateSelection: (payload: {
     worldId: string;
     text: string;

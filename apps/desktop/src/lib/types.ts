@@ -83,6 +83,22 @@ export interface StoryTurnResult {
   output: TurnOutput;
 }
 
+export type StoryTurnInput =
+  | { kind: "choice"; choice_id: string }
+  | { kind: "free_text"; text: string };
+
+export interface StoryTurnRequest {
+  world_id: string;
+  scene_id: string;
+  input: StoryTurnInput;
+}
+
+export interface StoryTurnPreview {
+  input: StoryTurnRequest;
+  raw_output_json: string;
+  output: TurnOutput;
+}
+
 export interface WorldBootstrap {
   world: WorldRecord;
   scene_id: string;

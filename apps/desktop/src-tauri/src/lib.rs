@@ -19,7 +19,8 @@ pub fn run() {
             commands::world_commands::delete_world,
             commands::world_commands::generate_world_draft,
             commands::world_commands::get_world_bootstrap,
-            commands::story_commands::send_story_turn,
+            commands::story_commands::preview_story_turn,
+            commands::story_commands::commit_story_turn_preview,
             commands::settings_commands::get_api_profile,
             commands::settings_commands::save_api_profile,
             commands::translation_commands::translate_selection
