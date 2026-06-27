@@ -40,7 +40,7 @@ button {
 
 .shell-toolbar {
   position: fixed;
-  top: 12px;
+  top: 24px;
   left: 12px;
   right: 12px;
   z-index: 30;
@@ -332,7 +332,7 @@ select:focus {
   background: transparent;
   color: inherit;
   text-align: left;
-  padding: 12px 42px 12px 12px;
+  padding: 12px 78px 12px 12px;
 }
 
 .world-open-button strong,
@@ -361,6 +361,17 @@ select:focus {
   position: absolute;
   top: 8px;
   right: 8px;
+}
+
+.icon-button.world-export {
+  position: absolute;
+  top: 8px;
+  right: 44px;
+}
+
+.icon-button.world-export:hover {
+  border-color: #213f3a;
+  color: #213f3a;
 }
 
 .icon-button.danger:hover {
@@ -560,7 +571,7 @@ select:focus {
   }
 
   .shell-toolbar {
-    top: 8px;
+    top: 18px;
   }
 
   .story-header {
@@ -631,15 +642,27 @@ select:focus {
   color: #6e665c;
 }
 
-.storage-info {
-  display: grid;
-  gap: 10px;
-  margin-top: 8px;
+.select-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
-.storage-info input {
-  color: #5f5548;
-  font-size: 12px;
+.select-shell svg {
+  position: absolute;
+  left: 12px;
+  color: #6e665c;
+  pointer-events: none;
+}
+
+.select-shell select {
+  padding-left: 38px;
+}
+
+.settings-status {
+  margin: 0;
+  color: #213f3a;
+  font-size: 13px;
 }
 
 .check-row {

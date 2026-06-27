@@ -1,5 +1,6 @@
 import { FormEvent, MouseEvent, UIEvent, useEffect, useRef, useState } from "react";
 import { Loader2, Send, Wand2 } from "lucide-react";
+import { translate } from "../lib/i18n";
 import { api } from "../lib/tauri";
 import { readSelectionSnapshot, SelectionSnapshot } from "../lib/selection";
 import type { ChoiceOutput, StoryTurnInput, StoryTurnPreview, TranslationResult } from "../lib/types";
@@ -29,6 +30,7 @@ export function ReaderPage() {
   const {
     activeWorld,
     activeSceneId,
+    appLanguage,
     turns,
     choices,
     loading,
@@ -37,6 +39,7 @@ export function ReaderPage() {
     setError,
     pushTurn
   } = useAppStore();
+  const t = (key: Parameters<typeof translate>[1], value?: string) => translate(appLanguage, key, value);
   const storyRef = useRef<HTMLDivElement | null>(null);
   const requestInFlightRef = useRef(false);
   const prefetchGenerationRef = useRef(0);
@@ -307,19 +310,19 @@ export function ReaderPage() {
       <div className="story-viewport" ref={storyRef} onMouseUp={handleMouseUp} onScroll={handleStoryScroll}>
         {storyStarted ? (
           <div className={showTurnPosition ? "turn-position visible" : "turn-position"}>
-            Turn {currentTurn || 1} / {turns.length}
+            {t("turn")} {currentTurn || 1} / {turns.length}
           </div>
         ) : null}
         {!storyStarted ? (
           <div className="opening-note">
-            <h2>{currentWorld.description || "A new story is waiting."}</h2>
+            <h2>{currentWorld.description || t("newStoryWaiting")}</h2>
             <button
               className="primary-button"
               disabled={loading}
               onClick={() => void sendTurn({ kind: "free_text", text: BEGIN_STORY_ACTION })}
             >
               {loading ? <Loader2 className="spin" size={16} /> : <Wand2 size={16} />}
-              Begin the story
+              {t("beginStory")}
             </button>
           </div>
         ) : (
@@ -346,7 +349,7 @@ export function ReaderPage() {
       </div>
 
       {storyStarted ? (
-        <section className="choice-panel" aria-label="Choices">
+        <section className="choice-panel" aria-label={t("choices")}>
           {choices.map((choice) => (
             <button className="choice-card" key={choice.label} onClick={() => void selectChoice(choice)} disabled={loading}>
               <span>{choice.text}</span>
@@ -357,10 +360,10 @@ export function ReaderPage() {
 
       {storyStarted ? (
         <form className="input-box" onSubmit={sendFreeText}>
-          <input name="text" placeholder="Type a free action..." disabled={loading} />
+          <input name="text" placeholder={t("freeActionPlaceholder")} disabled={loading} />
           <button className="primary-button" disabled={loading}>
             {loading ? <Loader2 className="spin" size={16} /> : <Send size={16} />}
-            Send
+            {t("send")}
           </button>
         </form>
       ) : null}
@@ -368,13 +371,13 @@ export function ReaderPage() {
       {selection ? (
         <div className="translate-popover" style={{ left: selection.x, top: selection.y }}>
           <strong>{selection.text}</strong>
-          {translating ? <p>Translating...</p> : null}
+          {translating ? <p>{t("translating")}</p> : null}
           {translation ? (
             <>
-              <p>{translation.translated_text || "No translation found."}</p>
+              <p>{translation.translated_text || t("noTranslation")}</p>
               <div className="phones">
-                {translation.us_phone ? <span>US /{translation.us_phone}/</span> : null}
-                {translation.uk_phone ? <span>UK /{translation.uk_phone}/</span> : null}
+                {translation.us_phone ? <span>{t("usPhone")} /{translation.us_phone}/</span> : null}
+                {translation.uk_phone ? <span>{t("ukPhone")} /{translation.uk_phone}/</span> : null}
               </div>
               {translation.phrases.length ? (
                 <ul>

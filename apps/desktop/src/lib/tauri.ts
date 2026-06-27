@@ -6,7 +6,6 @@ import type {
   StoryTurnPreview,
   StoryTurnRequest,
   StoryTurnResult,
-  StorageInfo,
   TranslationResult,
   WorldBootstrap,
   WorldRecord
@@ -16,12 +15,13 @@ export const api = {
   listWorlds: () => invoke<WorldRecord[]>("list_worlds"),
   createWorld: (request: CreateWorldRequest) => invoke<WorldRecord>("create_world", { request }),
   deleteWorld: (worldId: string) => invoke<void>("delete_world", { worldId }),
+  exportWorld: (worldId: string) => invoke<number[]>("export_world", { worldId }),
+  importWorld: (bytes: Uint8Array) => invoke<WorldRecord>("import_world", { bytes: Array.from(bytes) }),
   generateWorldDraft: (request: GenerateWorldDraftRequest) =>
     invoke<CreateWorldRequest>("generate_world_draft", { request }),
   getWorldBootstrap: (worldId: string) =>
     invoke<WorldBootstrap>("get_world_bootstrap", { worldId }),
   getApiProfile: () => invoke<ApiProfile | null>("get_api_profile"),
-  getStorageInfo: () => invoke<StorageInfo>("get_storage_info"),
   saveApiProfile: (profile: ApiProfile) => invoke<ApiProfile>("save_api_profile", { profile }),
   previewStoryTurn: (input: StoryTurnRequest) =>
     invoke<StoryTurnPreview>("preview_story_turn", { input }),

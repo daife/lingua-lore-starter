@@ -3,11 +3,13 @@ import { BookOpen, Library, PanelLeftClose, PanelLeftOpen, PanelRightClose, Pane
 import { WorldLibraryPage } from "../pages/WorldLibraryPage";
 import { ReaderPage } from "../pages/ReaderPage";
 import { SettingsPanel } from "../pages/SettingsPage";
+import { translate } from "../lib/i18n";
 import { api } from "../lib/tauri";
 import { useAppStore } from "../stores/useAppStore";
 
 export function App() {
-  const { activeWorld, setWorlds, setApiProfile, error, setError } = useAppStore();
+  const { activeWorld, appLanguage, setWorlds, setApiProfile, error, setError } = useAppStore();
+  const t = (key: Parameters<typeof translate>[1], value?: string) => translate(appLanguage, key, value);
   const shouldShowPanels = () =>
     typeof window === "undefined" ? true : !window.matchMedia("(max-width: 1180px)").matches;
   const [libraryOpen, setLibraryOpen] = useState(shouldShowPanels);
@@ -30,12 +32,12 @@ export function App() {
         settingsOpen ? "" : "settings-collapsed"
       ].filter(Boolean).join(" ")}
     >
-      <div className="shell-toolbar" aria-label="Layout controls">
+      <div className="shell-toolbar" aria-label={t("layoutControls")}>
         <button
           className="icon-button"
           type="button"
           onClick={() => setLibraryOpen((open) => !open)}
-          aria-label={libraryOpen ? "Hide world library" : "Show world library"}
+          aria-label={libraryOpen ? t("hideWorldLibrary") : t("showWorldLibrary")}
         >
           {libraryOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
         </button>
@@ -43,7 +45,7 @@ export function App() {
           className="icon-button"
           type="button"
           onClick={() => setSettingsOpen((open) => !open)}
-          aria-label={settingsOpen ? "Hide settings" : "Show settings"}
+          aria-label={settingsOpen ? t("hideSettings") : t("showSettings")}
         >
           {settingsOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
         </button>
@@ -51,39 +53,39 @@ export function App() {
       <button
         className="drawer-scrim"
         type="button"
-        aria-label="Close side panels"
+        aria-label={t("closeSidePanels")}
         onClick={() => {
           setLibraryOpen(false);
           setSettingsOpen(false);
         }}
       />
-      <aside className="sidebar" aria-label="World library" aria-hidden={!libraryOpen}>
+      <aside className="sidebar" aria-label={t("worldLibrary")} aria-hidden={!libraryOpen}>
         <div className="brand">
           <BookOpen size={22} />
           <div>
-            <strong>Lingua Lore</strong>
+            <strong>{t("brand")}</strong>
           </div>
         </div>
         <div className="section-title">
           <Library size={16} />
-          <span>Worlds</span>
+          <span>{t("worlds")}</span>
         </div>
         <WorldLibraryPage />
       </aside>
 
       <section className="reader-shell">
-        {activeWorld ? <ReaderPage /> : <div className="empty-reader">Create or open a world to begin.</div>}
+        {activeWorld ? <ReaderPage /> : <div className="empty-reader">{t("emptyReader")}</div>}
       </section>
 
-      <aside className="inspector" aria-label="Settings and status" aria-hidden={!settingsOpen}>
+      <aside className="inspector" aria-label={t("settingsAndStatus")} aria-hidden={!settingsOpen}>
         <div className="section-title">
           <Settings size={16} />
-          <span>Settings</span>
+          <span>{t("settings")}</span>
         </div>
         <SettingsPanel />
         {error ? (
           <div className="error-box" role="alert">
-            <button onClick={() => setError(undefined)}>Dismiss</button>
+            <button onClick={() => setError(undefined)}>{t("dismiss")}</button>
             <p>{error}</p>
           </div>
         ) : null}

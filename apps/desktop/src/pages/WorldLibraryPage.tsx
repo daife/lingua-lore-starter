@@ -1,5 +1,8 @@
-import { ChevronDown, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ChevronDown, Download, Plus, Sparkles, Trash2 } from "lucide-react";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeFile } from "@tauri-apps/plugin-fs";
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { translate } from "../lib/i18n";
 import { api } from "../lib/tauri";
 import type { CreateWorldRequest } from "../lib/types";
 import { useAppStore } from "../stores/useAppStore";
@@ -123,7 +126,16 @@ const DEFAULT_WORLD_FORM: CreateWorldRequest = {
 };
 
 export function WorldLibraryPage() {
-  const { worlds, activeWorld, setWorlds, setActiveWorld, clearActiveWorld, setError } = useAppStore();
+  const {
+    worlds,
+    activeWorld,
+    appLanguage,
+    setWorlds,
+    setActiveWorld,
+    clearActiveWorld,
+    setError
+  } = useAppStore();
+  const t = (key: Parameters<typeof translate>[1], value?: string) => translate(appLanguage, key, value);
   const [openForm, setOpenForm] = useState(worlds.length === 0);
   const [creating, setCreating] = useState(false);
   const [drafting, setDrafting] = useState(false);
@@ -203,7 +215,7 @@ export function WorldLibraryPage() {
   }
 
   async function deleteWorld(worldId: string, title: string) {
-    if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) {
+    if (!window.confirm(t("deleteWorldConfirm", title))) {
       return;
     }
     try {
@@ -217,16 +229,34 @@ export function WorldLibraryPage() {
     }
   }
 
+  async function exportWorld(worldId: string, title: string) {
+    try {
+      const fileName = `${safeZipName(title)}.zip`;
+      const selected = await save({
+        title: t("exportWorldTitle"),
+        defaultPath: fileName,
+        filters: [{ name: t("worldZip"), extensions: ["zip"] }]
+      });
+      if (!selected) {
+        return;
+      }
+      const bytes = await api.exportWorld(worldId);
+      await writeFile(selected, new Uint8Array(bytes));
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+
   return (
     <div className="world-panel">
-      <button className="command-button" onClick={() => setOpenForm((value) => !value)}>
+      <button className="command-button" type="button" onClick={() => setOpenForm((value) => !value)}>
         <Plus size={16} />
-        New world
+        {t("newWorld")}
       </button>
 
-      <button className="command-button" onClick={() => setShowGenrePicker((value) => !value)}>
+      <button className="command-button" type="button" onClick={() => setShowGenrePicker((value) => !value)}>
         <Sparkles size={16} />
-        AI fill
+        {t("aiFill")}
       </button>
 
       {showGenrePicker ? (
@@ -241,21 +271,21 @@ export function WorldLibraryPage() {
                   setCustomGenre("");
                 }
               }}
-              placeholder="Genre"
+              placeholder={t("genre")}
               disabled={drafting}
             />
             <Dropdown
               value={selectedLanguage}
               options={TARGET_LANGUAGES}
               onChange={setSelectedLanguage}
-              placeholder="Language"
+              placeholder={t("language")}
               disabled={drafting}
             />
           </div>
           {genreInput === "自定义" ? (
             <input
               className="custom-genre-input"
-              placeholder="Please enter your custom genre"
+              placeholder={t("customGenrePrompt")}
               value={customGenre}
               onChange={(event) => setCustomGenre(event.target.value)}
               disabled={drafting}
@@ -263,7 +293,7 @@ export function WorldLibraryPage() {
           ) : null}
           <button className="primary-button" onClick={() => void generateDraft()} disabled={drafting || !genreInput.trim() || (genreInput === "自定义" && !customGenre.trim())}>
             <Sparkles size={16} />
-            {drafting ? "Filling..." : "Generate draft"}
+            {drafting ? t("filling") : t("generateDraft")}
           </button>
         </div>
       ) : null}
@@ -272,47 +302,47 @@ export function WorldLibraryPage() {
         <form className="world-form" onSubmit={createWorld}>
           <input
             name="title"
-            placeholder="World title"
+            placeholder={t("worldTitle")}
             required
             value={formValues.title}
             onChange={(event) => updateField("title", event)}
           />
           <textarea
             name="description"
-            placeholder="Premise, tone, core conflict"
+            placeholder={t("premise")}
             rows={4}
             value={formValues.description}
             onChange={(event) => updateField("description", event)}
           />
           <input
             name="genre"
-            placeholder="Genre"
+            placeholder={t("genre")}
             value={formValues.genre}
             onChange={(event) => updateField("genre", event)}
           />
           <div className="split">
             <input
               name="target_language"
-              placeholder="Language"
+              placeholder={t("language")}
               value={formValues.target_language}
               onChange={(event) => updateField("target_language", event)}
             />
             <input
               name="language_level"
-              placeholder="Level"
+              placeholder={t("level")}
               value={formValues.language_level}
               onChange={(event) => updateField("language_level", event)}
             />
           </div>
           <input
             name="narrative_style"
-            placeholder="Narrative style"
+            placeholder={t("narrativeStyle")}
             value={formValues.narrative_style}
             onChange={(event) => updateField("narrative_style", event)}
           />
           <button className="primary-button" disabled={creating}>
             <Sparkles size={16} />
-            {creating ? "Creating..." : "Create"}
+            {creating ? t("creating") : t("create")}
           </button>
         </form>
       ) : null}
@@ -323,12 +353,20 @@ export function WorldLibraryPage() {
             <button className="world-open-button" onClick={() => void openWorld(world.id)}>
               <strong>{world.title}</strong>
               <span>{world.target_language} · {world.language_level}</span>
-              <p>{world.description || "No description yet."}</p>
+              <p>{world.description || t("noDescription")}</p>
+            </button>
+            <button
+              className="icon-button world-export"
+              aria-label={`${t("exportWorld")} ${world.title}`}
+              title={t("exportWorld")}
+              onClick={() => void exportWorld(world.id, world.title)}
+            >
+              <Download size={15} />
             </button>
             <button
               className="icon-button danger"
-              aria-label={`Delete ${world.title}`}
-              title="Delete world"
+              aria-label={`${t("deleteWorld")} ${world.title}`}
+              title={t("deleteWorld")}
               onClick={() => void deleteWorld(world.id, world.title)}
             >
               <Trash2 size={15} />
@@ -338,4 +376,10 @@ export function WorldLibraryPage() {
       </div>
     </div>
   );
+}
+
+function safeZipName(title: string) {
+  const fallback = "world";
+  const safe = title.trim().replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-").replace(/\s+/g, " ");
+  return safe || fallback;
 }

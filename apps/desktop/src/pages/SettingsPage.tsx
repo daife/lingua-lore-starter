@@ -1,8 +1,11 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Save, Zap } from "lucide-react";
+import { Languages, Save, Upload, Zap } from "lucide-react";
+import { open } from "@tauri-apps/plugin-dialog";
+import { readFile } from "@tauri-apps/plugin-fs";
+import { APP_LANGUAGE_OPTIONS, translate, type AppLanguage } from "../lib/i18n";
 import { api } from "../lib/tauri";
 import { useAppStore } from "../stores/useAppStore";
-import type { ApiProfile, StorageInfo } from "../lib/types";
+import type { ApiProfile } from "../lib/types";
 
 const DEFAULT_PROFILE: ApiProfile = {
   id: "",
@@ -14,20 +17,24 @@ const DEFAULT_PROFILE: ApiProfile = {
 };
 
 export function SettingsPanel() {
-  const { apiProfile, quickMode, setApiProfile, setError, setQuickMode } = useAppStore();
+  const {
+    apiProfile,
+    appLanguage,
+    quickMode,
+    setApiProfile,
+    setAppLanguage,
+    setError,
+    setQuickMode,
+    setWorlds
+  } = useAppStore();
+  const t = (key: Parameters<typeof translate>[1], value?: string) => translate(appLanguage, key, value);
   const [saved, setSaved] = useState(false);
-  const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [status, setStatus] = useState("");
 
   useEffect(() => {
     setSaved(false);
   }, [apiProfile]);
-
-  useEffect(() => {
-    void api
-      .getStorageInfo()
-      .then(setStorageInfo)
-      .catch((err) => setError(String(err)));
-  }, [setError]);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,8 +50,33 @@ export function SettingsPanel() {
       });
       setApiProfile(profile);
       setSaved(true);
+      setStatus("");
     } catch (err) {
       setError(String(err));
+    }
+  }
+
+  async function importWorld() {
+    setImporting(true);
+    setStatus("");
+    try {
+      const selected = await open({
+        multiple: false,
+        directory: false,
+        title: t("importWorldZip"),
+        filters: [{ name: t("worldZip"), extensions: ["zip"] }]
+      });
+      if (!selected || Array.isArray(selected)) {
+        return;
+      }
+      const bytes = await readFile(selected);
+      await api.importWorld(bytes);
+      setWorlds(await api.listWorlds());
+      setStatus(t("worldImported"));
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -53,25 +85,41 @@ export function SettingsPanel() {
   return (
     <form className="settings-form" onSubmit={save}>
       <label>
-        Name
+        {t("name")}
         <input name="name" defaultValue={profile.name} />
       </label>
       <label>
-        Base URL
+        {t("baseUrl")}
         <input name="base_url" defaultValue={profile.base_url} />
       </label>
       <label>
-        Model
+        {t("model")}
         <input name="model" defaultValue={profile.model} />
       </label>
       <label>
-        API Key
+        {t("apiKey")}
         <input name="api_key" type="password" defaultValue={profile.api_key} />
       </label>
       <button className="primary-button">
         <Save size={16} />
-        {saved ? "Saved" : "Save API profile"}
+        {saved ? t("saved") : t("saveApiProfile")}
       </button>
+      <label>
+        {t("appLanguage")}
+        <span className="select-shell">
+          <Languages size={16} />
+          <select
+            value={appLanguage}
+            onChange={(event) => setAppLanguage(event.target.value as AppLanguage)}
+          >
+            {APP_LANGUAGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </span>
+      </label>
       <button
         className={quickMode ? "quick-mode-toggle active" : "quick-mode-toggle"}
         type="button"
@@ -79,24 +127,13 @@ export function SettingsPanel() {
         aria-pressed={quickMode}
       >
         <Zap size={16} />
-        Quick mode
+        {t("quickMode")}
       </button>
-      {storageInfo ? (
-        <div className="storage-info" aria-label="Storage paths">
-          <label>
-            Data directory
-            <input readOnly value={storageInfo.data_dir} />
-          </label>
-          <label>
-            App database
-            <input readOnly value={storageInfo.app_db_path} />
-          </label>
-          <label>
-            Worlds directory
-            <input readOnly value={storageInfo.worlds_dir} />
-          </label>
-        </div>
-      ) : null}
+      <button className="command-button" type="button" onClick={() => void importWorld()} disabled={importing}>
+        <Upload size={16} />
+        {importing ? t("importing") : t("importWorld")}
+      </button>
+      {status ? <p className="settings-status">{status}</p> : null}
     </form>
   );
 }

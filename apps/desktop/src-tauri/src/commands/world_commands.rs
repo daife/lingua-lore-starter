@@ -8,8 +8,8 @@ use crate::domain::{
     AppResult, ChoiceOutput, CreateWorldRequest, StoryTurnResult, TurnOutput, WorldRecord,
 };
 use crate::storage::{
-    create_world as persist_world, delete_world as remove_world, list_worlds as query_worlds,
-    load_api_profile, AppState,
+    create_world as persist_world, delete_world as remove_world, export_world_zip as zip_world,
+    import_world_zip as unzip_world, list_worlds as query_worlds, load_api_profile, AppState,
 };
 
 const WORLD_DRAFT_SCHEMA: &str = r#"{
@@ -58,6 +58,16 @@ pub fn create_world(state: State<AppState>, request: CreateWorldRequest) -> AppR
 #[tauri::command]
 pub fn delete_world(state: State<AppState>, world_id: String) -> AppResult<()> {
     remove_world(&state, &world_id).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+pub fn export_world(state: State<AppState>, world_id: String) -> AppResult<Vec<u8>> {
+    zip_world(&state, &world_id).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+pub fn import_world(state: State<AppState>, bytes: Vec<u8>) -> AppResult<WorldRecord> {
+    unzip_world(&state, bytes).map_err(|err| err.to_string())
 }
 
 #[tauri::command]

@@ -1,11 +1,15 @@
 use anyhow::{Context, Result};
 use chrono::Utc;
 use rusqlite::{params, Connection};
+use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::{Cursor, Read, Write};
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 use uuid::Uuid;
+use zip::write::SimpleFileOptions;
+use zip::{ZipArchive, ZipWriter};
 
 use crate::domain::{
     ApiProfile, CreateCharacterRequest, CreateWorldRequest, StorageInfo, WorldRecord,
@@ -16,6 +20,14 @@ const APP_MIGRATION: &str = include_str!("../../migrations/app/001_init.sql");
 const WORLD_MIGRATION: &str = include_str!("../../migrations/world/001_init.sql");
 const DEEPSEEK_BASE_URL: &str = "https://api.deepseek.com";
 const DEEPSEEK_BETA_BASE_URL: &str = "https://api.deepseek.com/beta";
+const WORLD_EXPORT_VERSION: u32 = 1;
+
+#[derive(Debug, Serialize, Deserialize)]
+struct WorldExportManifest {
+    version: u32,
+    title: String,
+    exported_at: String,
+}
 
 pub struct AppState {
     pub data_dir: PathBuf,
@@ -177,8 +189,119 @@ pub fn delete_world(state: &AppState, world_id: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn export_world_zip(state: &AppState, world_id: &str) -> Result<Vec<u8>> {
+    let _guard = state.lock.lock().expect("storage lock poisoned");
+    let world = get_world(state, world_id)?;
+    let db_path = state.world_db_path(world_id);
+    let db_bytes = fs::read(&db_path)
+        .with_context(|| format!("failed to read world database: {}", db_path.display()))?;
+    let manifest = WorldExportManifest {
+        version: WORLD_EXPORT_VERSION,
+        title: world.title,
+        exported_at: now(),
+    };
+
+    let mut cursor = Cursor::new(Vec::new());
+    {
+        let mut zip = ZipWriter::new(&mut cursor);
+        let options =
+            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+        zip.start_file("manifest.json", options)?;
+        zip.write_all(serde_json::to_string_pretty(&manifest)?.as_bytes())?;
+        zip.start_file("world.db", options)?;
+        zip.write_all(&db_bytes)?;
+        zip.finish()?;
+    }
+    Ok(cursor.into_inner())
+}
+
+pub fn import_world_zip(state: &AppState, bytes: Vec<u8>) -> Result<WorldRecord> {
+    let _guard = state.lock.lock().expect("storage lock poisoned");
+    let mut archive = ZipArchive::new(Cursor::new(bytes)).context("invalid world zip")?;
+    let mut manifest_json = String::new();
+    archive
+        .by_name("manifest.json")
+        .context("world zip is missing manifest.json")?
+        .read_to_string(&mut manifest_json)?;
+    let manifest: WorldExportManifest =
+        serde_json::from_str(&manifest_json).context("invalid world manifest")?;
+    if manifest.version != WORLD_EXPORT_VERSION {
+        anyhow::bail!("unsupported world export version: {}", manifest.version);
+    }
+
+    let mut db_bytes = Vec::new();
+    archive
+        .by_name("world.db")
+        .context("world zip is missing world.db")?
+        .read_to_end(&mut db_bytes)?;
+
+    let id = format!("world_{}", Uuid::new_v4().simple());
+    let world_dir = state.data_dir.join("worlds").join(&id);
+    fs::create_dir_all(&world_dir)?;
+    let db_path = world_dir.join("world.db");
+    fs::write(&db_path, db_bytes)?;
+
+    let imported = import_world_record_from_db(state, &id, &world_dir);
+    if imported.is_err() {
+        let _ = fs::remove_dir_all(&world_dir);
+    }
+    imported
+}
+
+fn import_world_record_from_db(
+    state: &AppState,
+    world_id: &str,
+    world_dir: &PathBuf,
+) -> Result<WorldRecord> {
+    let world_conn = state.open_world_conn(world_id)?;
+    let imported_at = now();
+    world_conn.execute(
+        "UPDATE world_profile SET id = ?1, updated_at = ?2",
+        params![world_id, &imported_at],
+    )?;
+    let profile = world_conn
+        .query_row(
+            "SELECT title, description, genre, target_language, language_level, narrative_style
+             FROM world_profile LIMIT 1",
+            [],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, String>(5)?,
+                ))
+            },
+        )
+        .context("imported world database is missing world_profile")?;
+    let (title, description, _genre, target_language, language_level, _narrative_style) = profile;
+
+    let conn = state.app_conn()?;
+    let slug = unique_slug(&conn, &slugify(&title))?;
+    let storage_path = world_dir.to_string_lossy().to_string();
+    conn.execute(
+        "INSERT INTO worlds
+         (id, slug, title, description, storage_path, target_language, language_level, created_at, updated_at, last_opened_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8, ?8)",
+        params![
+            world_id,
+            &slug,
+            &title,
+            &description,
+            &storage_path,
+            &target_language,
+            &language_level,
+            &imported_at
+        ],
+    )?;
+    get_world(state, world_id)
+}
+
 fn unique_slug(conn: &Connection, slug: &str) -> Result<String> {
-    let mut candidate = slug.to_string();
+    let base = if slug.trim().is_empty() { "world" } else { slug };
+    let mut candidate = base.to_string();
     let mut suffix = 2;
     loop {
         let count: i64 = conn.query_row(
@@ -189,7 +312,7 @@ fn unique_slug(conn: &Connection, slug: &str) -> Result<String> {
         if count == 0 {
             return Ok(candidate);
         }
-        candidate = format!("{slug}-{suffix}");
+        candidate = format!("{base}-{suffix}");
         suffix += 1;
     }
 }
