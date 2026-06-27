@@ -168,33 +168,80 @@ apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/
 
 发布版本直接从本地构建产物发布，不使用 GitHub Actions 远程构建。
 
-1. 更新版本号：`package.json`、`apps/desktop/package.json`、`apps/desktop/src-tauri/Cargo.toml`、`apps/desktop/src-tauri/tauri.conf.json`
-2. 运行检查：
+1. **完成代码修改并更新版本号**。需要更新的文件：
 
-```powershell
-npm run typecheck
-cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
-```
+   | 文件 | 字段 |
+   |---|---|
+   | `package.json` | `version` |
+   | `apps/desktop/package.json` | `version` |
+   | `apps/desktop/src-tauri/Cargo.toml` | `version` |
+   | `apps/desktop/src-tauri/tauri.conf.json` | `version` |
+   | `apps/desktop/src-tauri/gen/android/app/tauri.properties` | `versionName` + `versionCode` |
 
-3. 本地构建 Windows 和 Android：
+   > ⚠️ Android `tauri.properties` 是自动生成文件，需要在构建前手动编辑。
 
-```powershell
-npm --workspace @lingua-lore/desktop run tauri -- build
-npm --workspace @lingua-lore/desktop run tauri -- android build --apk --target aarch64
-```
+2. **配置 Android APK 签名**（一次性）。在 `apps/desktop/src-tauri/gen/android/app/build.gradle.kts` 中添加：
 
-4. 提交、打标签并推送：
+   ```kotlin
+   signingConfigs {
+       create("release") {
+           storeFile = file("../lingua-lore-test.keystore")
+           storePassword = "android"
+           keyAlias = "lingua-lore-test"
+           keyPassword = "android"
+       }
+   }
+   ```
 
-```powershell
-git add .
-git commit -m "Prepare v0.1.x local release"
-git tag v0.1.x
-git push origin main
-git push origin v0.1.x
-```
+   然后在 `release` 构建类型中引用：
 
-5. 从本地产物创建 GitHub Release：
+   ```kotlin
+   getByName("release") {
+       signingConfig = signingConfigs.getByName("release")
+       // ...
+   }
+   ```
 
-```powershell
-gh release create v0.1.x --title "Lingua Lore v0.1.x" --notes "Local release notes." (Get-Item apps/desktop/src-tauri/target/release/bundle/msi/*.msi).FullName (Get-Item apps/desktop/src-tauri/target/release/bundle/nsis/*.exe).FullName (Get-Item apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk).FullName
-```
+3. **运行检查：**
+
+   ```powershell
+   npm run typecheck
+   cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
+   ```
+
+4. **提交所有修改**（代码 + 版本号在同一 commit）：
+
+   ```powershell
+   git add .
+   git commit -m "feat: your feature description"
+   git push origin main
+   ```
+
+5. **本地构建 Windows 和 Android：**
+
+   ```powershell
+   npm --workspace @lingua-lore/desktop run tauri -- build
+   npm --workspace @lingua-lore/desktop run tauri -- android build --apk --target aarch64
+   ```
+
+6. **重命名 Android APK** 为发布命名规范：
+
+   ```powershell
+   copy apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk "apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/Lingua Lore_0.1.x_android-arm64.apk"
+   ```
+
+7. **打标签并推送：**
+
+   ```powershell
+   git tag v0.1.x
+   git push origin v0.1.x
+   ```
+
+8. **从本地产物创建 GitHub Release**（使用显式路径）：
+
+   ```powershell
+   $msi = "apps/desktop/src-tauri/target/release/bundle/msi/Lingua Lore_0.1.x_x64_en-US.msi"
+   $exe = "apps/desktop/src-tauri/target/release/bundle/nsis/Lingua Lore_0.1.x_x64-setup.exe"
+   $apk = "apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/Lingua Lore_0.1.x_android-arm64.apk"
+   gh release create v0.1.x --title "Lingua Lore v0.1.x" --notes "Local release notes." "$msi" "$exe" "$apk"
+   ```

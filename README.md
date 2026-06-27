@@ -168,33 +168,80 @@ apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/
 
 Releases are published from local build artifacts. GitHub Actions remote builds are intentionally not used.
 
-1. Update versions in `package.json`, `apps/desktop/package.json`, `apps/desktop/src-tauri/Cargo.toml`, and `apps/desktop/src-tauri/tauri.conf.json`.
-2. Run checks:
+1. **Make code changes and bump versions**. Update all version files:
 
-```powershell
-npm run typecheck
-cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
-```
+   | File | Field |
+   |---|---|
+   | `package.json` | `version` |
+   | `apps/desktop/package.json` | `version` |
+   | `apps/desktop/src-tauri/Cargo.toml` | `version` |
+   | `apps/desktop/src-tauri/tauri.conf.json` | `version` |
+   | `apps/desktop/src-tauri/gen/android/app/tauri.properties` | `versionName` + `versionCode` |
 
-3. Build Windows and Android locally:
+   > ⚠️ Android `tauri.properties` is auto-generated — edit it directly before the Android build.
 
-```powershell
-npm --workspace @lingua-lore/desktop run tauri -- build
-npm --workspace @lingua-lore/desktop run tauri -- android build --apk --target aarch64
-```
+2. **Configure Android APK signing** (one-time). Add a `signingConfigs` block to `apps/desktop/src-tauri/gen/android/app/build.gradle.kts`:
 
-4. Commit, tag, and push:
+   ```kotlin
+   signingConfigs {
+       create("release") {
+           storeFile = file("../lingua-lore-test.keystore")
+           storePassword = "android"
+           keyAlias = "lingua-lore-test"
+           keyPassword = "android"
+       }
+   }
+   ```
 
-```powershell
-git add .
-git commit -m "Prepare v0.1.x local release"
-git tag v0.1.x
-git push origin main
-git push origin v0.1.x
-```
+   Then reference it in the `release` build type:
 
-5. Create the GitHub release from local artifacts:
+   ```kotlin
+   getByName("release") {
+       signingConfig = signingConfigs.getByName("release")
+       // ...
+   }
+   ```
 
-```powershell
-gh release create v0.1.x --title "Lingua Lore v0.1.x" --notes "Local release notes." (Get-Item apps/desktop/src-tauri/target/release/bundle/msi/*.msi).FullName (Get-Item apps/desktop/src-tauri/target/release/bundle/nsis/*.exe).FullName (Get-Item apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk).FullName
-```
+3. **Run checks:**
+
+   ```powershell
+   npm run typecheck
+   cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
+   ```
+
+4. **Commit everything** (code changes + version bumps in one commit):
+
+   ```powershell
+   git add .
+   git commit -m "feat: your feature description"
+   git push origin main
+   ```
+
+5. **Build Windows and Android locally:**
+
+   ```powershell
+   npm --workspace @lingua-lore/desktop run tauri -- build
+   npm --workspace @lingua-lore/desktop run tauri -- android build --apk --target aarch64
+   ```
+
+6. **Rename the Android APK** to the release naming convention:
+
+   ```powershell
+   copy apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk "apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/Lingua Lore_0.1.x_android-arm64.apk"
+   ```
+
+7. **Tag and push:**
+
+   ```powershell
+   git tag v0.1.x
+   git push origin v0.1.x
+   ```
+
+8. **Create the GitHub release** with explicit artifact paths:
+
+   ```powershell
+   $msi = "apps/desktop/src-tauri/target/release/bundle/msi/Lingua Lore_0.1.x_x64_en-US.msi"
+   $exe = "apps/desktop/src-tauri/target/release/bundle/nsis/Lingua Lore_0.1.x_x64-setup.exe"
+   $apk = "apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/Lingua Lore_0.1.x_android-arm64.apk"
+   gh release create v0.1.x --title "Lingua Lore v0.1.x" --notes "Local release notes." "$msi" "$exe" "$apk"
+   ```
