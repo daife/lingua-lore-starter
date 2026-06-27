@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Languages, Save, Upload, Zap } from "lucide-react";
+import { Download, Languages, Save, Zap } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { APP_LANGUAGE_OPTIONS, translate, type AppLanguage } from "../lib/i18n";
@@ -130,7 +130,7 @@ export function SettingsPanel() {
         {t("quickMode")}
       </button>
       <button className="command-button" type="button" onClick={() => void importWorld()} disabled={importing}>
-        <Upload size={16} />
+        <Download size={16} />
         {importing ? t("importing") : t("importWorld")}
       </button>
       {status ? <p className="settings-status">{status}</p> : null}

@@ -1,4 +1,4 @@
-import { ChevronDown, Download, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ChevronDown, Plus, Sparkles, Trash2, Upload } from "lucide-react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
@@ -361,7 +361,7 @@ export function WorldLibraryPage() {
               title={t("exportWorld")}
               onClick={() => void exportWorld(world.id, world.title)}
             >
-              <Download size={15} />
+              <Upload size={15} />
             </button>
             <button
               className="icon-button danger"
