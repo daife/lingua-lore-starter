@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Save, Zap } from "lucide-react";
 import { api } from "../lib/tauri";
 import { useAppStore } from "../stores/useAppStore";
-import type { ApiProfile } from "../lib/types";
+import type { ApiProfile, StorageInfo } from "../lib/types";
 
 const DEFAULT_PROFILE: ApiProfile = {
   id: "",
@@ -16,10 +16,18 @@ const DEFAULT_PROFILE: ApiProfile = {
 export function SettingsPanel() {
   const { apiProfile, quickMode, setApiProfile, setError, setQuickMode } = useAppStore();
   const [saved, setSaved] = useState(false);
+  const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
 
   useEffect(() => {
     setSaved(false);
   }, [apiProfile]);
+
+  useEffect(() => {
+    void api
+      .getStorageInfo()
+      .then(setStorageInfo)
+      .catch((err) => setError(String(err)));
+  }, [setError]);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -73,6 +81,22 @@ export function SettingsPanel() {
         <Zap size={16} />
         Quick mode
       </button>
+      {storageInfo ? (
+        <div className="storage-info" aria-label="Storage paths">
+          <label>
+            Data directory
+            <input readOnly value={storageInfo.data_dir} />
+          </label>
+          <label>
+            App database
+            <input readOnly value={storageInfo.app_db_path} />
+          </label>
+          <label>
+            Worlds directory
+            <input readOnly value={storageInfo.worlds_dir} />
+          </label>
+        </div>
+      ) : null}
     </form>
   );
 }

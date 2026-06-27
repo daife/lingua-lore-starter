@@ -417,6 +417,8 @@ select:focus {
   overflow: auto;
   padding: 34px clamp(32px, 7vw, 88px);
   touch-action: pan-y;
+  user-select: text;
+  -webkit-user-select: text;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -432,6 +434,13 @@ select:focus {
   color: #6e665c;
   padding: 5px 11px;
   font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.turn-position.visible {
+  opacity: 1;
 }
 
 .empty-reader,
@@ -517,9 +526,9 @@ select:focus {
 
 .choice-card {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: 10px;
+  gap: 0;
   min-height: 76px;
   text-align: left;
   border: 1px solid #c9beae;
@@ -555,15 +564,15 @@ select:focus {
   }
 
   .story-header {
-    padding: 54px 18px 14px 72px;
+    padding: 42px 14px 10px 56px;
   }
 
   .story-header h1 {
-    font-size: 24px;
+    font-size: 21px;
   }
 
   .story-viewport {
-    padding: 24px 18px;
+    padding: 18px 16px;
   }
 
   .turn-block {
@@ -592,8 +601,6 @@ select:focus {
   }
 
   .choice-card {
-    grid-template-columns: 1fr;
-    gap: 8px;
     padding: 10px;
   }
 
@@ -609,16 +616,6 @@ select:focus {
   }
 }
 
-.choice-card strong {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #213f3a;
-  color: white;
-}
-
 .input-box {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -632,6 +629,17 @@ select:focus {
   display: grid;
   gap: 6px;
   color: #6e665c;
+}
+
+.storage-info {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.storage-info input {
+  color: #5f5548;
+  font-size: 12px;
 }
 
 .check-row {

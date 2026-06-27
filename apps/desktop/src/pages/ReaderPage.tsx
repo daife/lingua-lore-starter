@@ -40,20 +40,21 @@ export function ReaderPage() {
   const storyRef = useRef<HTMLDivElement | null>(null);
   const requestInFlightRef = useRef(false);
   const prefetchGenerationRef = useRef(0);
+  const turnPositionTimerRef = useRef<number | null>(null);
+  const selectionTimerRef = useRef<number | null>(null);
+  const selectionGenerationRef = useRef(0);
+  const lastSelectionKeyRef = useRef("");
   const previewCacheRef = useRef<Map<string, PreviewCacheEntry>>(new Map());
   const [selection, setSelection] = useState<SelectionSnapshot | null>(null);
   const [translation, setTranslation] = useState<TranslationResult | null>(null);
   const [translating, setTranslating] = useState(false);
   const [currentTurn, setCurrentTurn] = useState(0);
+  const [showTurnPosition, setShowTurnPosition] = useState(false);
   const [, setBuffering] = useState(false);
-
-  if (!activeWorld || !activeSceneId) {
-    return null;
-  }
 
   const world = activeWorld;
   const sceneId = activeSceneId;
-  const storyStarted = turns.length > 0;
+  const storyStarted = Boolean(world && sceneId && turns.length > 0);
   const latestTurnId = turns[turns.length - 1]?.id ?? "opening";
   const choiceSignature = choices.map((choice) => choice.id ?? choice.label).join("|");
 
@@ -69,11 +70,33 @@ export function ReaderPage() {
   }, [storyStarted, turns.length]);
 
   useEffect(() => {
+    return () => {
+      if (turnPositionTimerRef.current) {
+        window.clearTimeout(turnPositionTimerRef.current);
+      }
+      if (selectionTimerRef.current) {
+        window.clearTimeout(selectionTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!world) {
+      return;
+    }
+    const handleSelectionChange = () => {
+      queueSelectionTranslation(320);
+    };
+    document.addEventListener("selectionchange", handleSelectionChange);
+    return () => document.removeEventListener("selectionchange", handleSelectionChange);
+  }, [world?.id, world?.target_language]);
+
+  useEffect(() => {
     const generation = prefetchGenerationRef.current + 1;
     prefetchGenerationRef.current = generation;
     previewCacheRef.current.clear();
 
-    if (!quickMode || !storyStarted || !choices.length) {
+    if (!world || !sceneId || !quickMode || !storyStarted || !choices.length) {
       setBuffering(false);
       return;
     }
@@ -112,7 +135,14 @@ export function ReaderPage() {
         setBuffering(false);
       }
     });
-  }, [quickMode, storyStarted, choiceSignature, latestTurnId, world.id, sceneId]);
+  }, [quickMode, storyStarted, choiceSignature, latestTurnId, world?.id, sceneId]);
+
+  if (!world || !sceneId) {
+    return null;
+  }
+
+  const currentWorld = world;
+  const currentSceneId = sceneId;
 
   function invalidatePreviewBuffer() {
     prefetchGenerationRef.current += 1;
@@ -177,8 +207,8 @@ export function ReaderPage() {
     try {
       invalidatePreviewBuffer();
       const preview = await api.previewStoryTurn({
-        world_id: world.id,
-        scene_id: sceneId,
+        world_id: currentWorld.id,
+        scene_id: currentSceneId,
         input
       });
       const result = await api.commitStoryTurnPreview(preview);
@@ -192,6 +222,11 @@ export function ReaderPage() {
   }
 
   function handleStoryScroll(event: UIEvent<HTMLDivElement>) {
+    setShowTurnPosition(true);
+    if (turnPositionTimerRef.current) {
+      window.clearTimeout(turnPositionTimerRef.current);
+    }
+    turnPositionTimerRef.current = window.setTimeout(() => setShowTurnPosition(false), 900);
     const viewport = event.currentTarget;
     const viewportTop = viewport.getBoundingClientRect().top;
     const blocks = Array.from(viewport.querySelectorAll<HTMLElement>("[data-turn-index]"));
@@ -205,51 +240,79 @@ export function ReaderPage() {
     setCurrentTurn(Math.min(Math.max(visibleTurn, 1), turns.length));
   }
 
-  async function handleMouseUp(_event: MouseEvent) {
-    if (window.matchMedia("(pointer: coarse)").matches) {
+  function queueSelectionTranslation(delayMs = 0) {
+    if (selectionTimerRef.current) {
+      window.clearTimeout(selectionTimerRef.current);
+    }
+    selectionTimerRef.current = window.setTimeout(() => {
+      void translateCurrentSelection();
+    }, delayMs);
+  }
+
+  async function translateCurrentSelection() {
+    const generation = selectionGenerationRef.current + 1;
+    selectionGenerationRef.current = generation;
+    const snapshot = readSelectionSnapshot(storyRef.current);
+    const selectionKey = snapshot ? `${snapshot.text}|${Math.round(snapshot.x)}|${Math.round(snapshot.y)}` : "";
+    if (selectionKey && selectionKey === lastSelectionKeyRef.current) {
       return;
     }
-    const snapshot = readSelectionSnapshot(storyRef.current);
+    lastSelectionKeyRef.current = selectionKey;
     setSelection(snapshot);
     setTranslation(null);
     if (!snapshot) {
+      setTranslating(false);
       return;
     }
     setTranslating(true);
     try {
       const result = await api.translateSelection({
-        worldId: world.id,
+        worldId: currentWorld.id,
         text: snapshot.text,
         context: snapshot.context,
-        sourceLanguage: world.target_language,
-        targetLanguage: translationTargetForStoryLanguage(world.target_language)
+        sourceLanguage: currentWorld.target_language,
+        targetLanguage: translationTargetForStoryLanguage(currentWorld.target_language)
       });
-      setTranslation(result);
+      if (selectionGenerationRef.current === generation) {
+        setTranslation(result);
+      }
     } catch (err) {
-      setError(String(err));
+      if (selectionGenerationRef.current === generation) {
+        setError(String(err));
+      }
     } finally {
-      setTranslating(false);
+      if (selectionGenerationRef.current === generation) {
+        setTranslating(false);
+      }
     }
+  }
+
+  async function handleMouseUp(_event: MouseEvent) {
+    if (window.matchMedia("(pointer: coarse)").matches) {
+      queueSelectionTranslation(180);
+      return;
+    }
+    await translateCurrentSelection();
   }
 
   return (
     <div className="reader-page">
       <header className="story-header">
         <div>
-          <span>{world.target_language} · {world.language_level}</span>
-          <h1>{world.title}</h1>
+          <span>{currentWorld.target_language} · {currentWorld.language_level}</span>
+          <h1>{currentWorld.title}</h1>
         </div>
       </header>
 
       <div className="story-viewport" ref={storyRef} onMouseUp={handleMouseUp} onScroll={handleStoryScroll}>
         {storyStarted ? (
-          <div className="turn-position">
+          <div className={showTurnPosition ? "turn-position visible" : "turn-position"}>
             Turn {currentTurn || 1} / {turns.length}
           </div>
         ) : null}
         {!storyStarted ? (
           <div className="opening-note">
-            <h2>{world.description || "A new story is waiting."}</h2>
+            <h2>{currentWorld.description || "A new story is waiting."}</h2>
             <button
               className="primary-button"
               disabled={loading}
@@ -286,7 +349,6 @@ export function ReaderPage() {
         <section className="choice-panel" aria-label="Choices">
           {choices.map((choice) => (
             <button className="choice-card" key={choice.label} onClick={() => void selectChoice(choice)} disabled={loading}>
-              <strong>{choice.label}</strong>
               <span>{choice.text}</span>
             </button>
           ))}

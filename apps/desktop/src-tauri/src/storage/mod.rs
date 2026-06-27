@@ -4,9 +4,12 @@ use rusqlite::{params, Connection};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
+use tauri::{AppHandle, Manager};
 use uuid::Uuid;
 
-use crate::domain::{ApiProfile, CreateCharacterRequest, CreateWorldRequest, WorldRecord};
+use crate::domain::{
+    ApiProfile, CreateCharacterRequest, CreateWorldRequest, StorageInfo, WorldRecord,
+};
 use crate::security;
 
 const APP_MIGRATION: &str = include_str!("../../migrations/app/001_init.sql");
@@ -21,10 +24,8 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn initialize() -> Result<Self> {
-        let data_dir = dirs::data_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("LinguaLore");
+    pub fn initialize(app: &AppHandle) -> Result<Self> {
+        let data_dir = app.path().app_data_dir()?;
         fs::create_dir_all(data_dir.join("worlds"))?;
         fs::create_dir_all(data_dir.join("logs"))?;
         let app_db_path = data_dir.join("app.db");
@@ -50,6 +51,14 @@ impl AppState {
         let conn = Connection::open(path)?;
         conn.execute_batch(WORLD_MIGRATION)?;
         Ok(conn)
+    }
+
+    pub fn storage_info(&self) -> StorageInfo {
+        StorageInfo {
+            data_dir: self.data_dir.to_string_lossy().to_string(),
+            app_db_path: self.app_db_path.to_string_lossy().to_string(),
+            worlds_dir: self.data_dir.join("worlds").to_string_lossy().to_string(),
+        }
     }
 }
 
@@ -290,7 +299,6 @@ fn seed_world(
     }
     Ok(())
 }
-
 
 pub fn load_api_profile(state: &AppState) -> Result<Option<ApiProfile>> {
     let conn = state.app_conn()?;

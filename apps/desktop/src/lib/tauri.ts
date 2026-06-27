@@ -6,6 +6,7 @@ import type {
   StoryTurnPreview,
   StoryTurnRequest,
   StoryTurnResult,
+  StorageInfo,
   TranslationResult,
   WorldBootstrap,
   WorldRecord
@@ -20,6 +21,7 @@ export const api = {
   getWorldBootstrap: (worldId: string) =>
     invoke<WorldBootstrap>("get_world_bootstrap", { worldId }),
   getApiProfile: () => invoke<ApiProfile | null>("get_api_profile"),
+  getStorageInfo: () => invoke<StorageInfo>("get_storage_info"),
   saveApiProfile: (profile: ApiProfile) => invoke<ApiProfile>("save_api_profile", { profile }),
   previewStoryTurn: (input: StoryTurnRequest) =>
     invoke<StoryTurnPreview>("preview_story_turn", { input }),

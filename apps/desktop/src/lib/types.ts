@@ -47,6 +47,12 @@ export interface ApiProfile {
   use_strict_tools: boolean;
 }
 
+export interface StorageInfo {
+  data_dir: string;
+  app_db_path: string;
+  worlds_dir: string;
+}
+
 export interface Dialogue {
   speaker: string;
   text: string;

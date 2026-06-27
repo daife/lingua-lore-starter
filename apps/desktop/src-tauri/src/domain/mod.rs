@@ -52,6 +52,13 @@ pub struct ApiProfile {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StorageInfo {
+    pub data_dir: String,
+    pub app_db_path: String,
+    pub worlds_dir: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Dialogue {
     pub speaker: String,
     pub text: String,

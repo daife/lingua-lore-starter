@@ -9,10 +9,16 @@ mod translation;
 mod turn_commit;
 
 use storage::AppState;
+use tauri::Manager;
 
 pub fn run() {
     tauri::Builder::default()
-        .manage(AppState::initialize().expect("failed to initialize Lingua Lore storage"))
+        .setup(|app| {
+            let state = AppState::initialize(app.handle())
+                .expect("failed to initialize Lingua Lore storage");
+            app.manage(state);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::world_commands::list_worlds,
             commands::world_commands::create_world,
@@ -23,6 +29,7 @@ pub fn run() {
             commands::story_commands::commit_story_turn_preview,
             commands::settings_commands::get_api_profile,
             commands::settings_commands::save_api_profile,
+            commands::settings_commands::get_storage_info,
             commands::translation_commands::translate_selection
         ])
         .run(tauri::generate_context!())
