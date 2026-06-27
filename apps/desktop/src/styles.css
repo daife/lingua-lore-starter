@@ -154,6 +154,7 @@ button {
   justify-content: center;
   gap: 12px;
   align-items: center;
+  margin-top: 22px;
   margin-bottom: 26px;
   text-align: center;
 }

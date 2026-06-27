@@ -69,7 +69,7 @@ export function ReaderPage() {
     }
     setCurrentTurn(turns.length);
     requestAnimationFrame(() => {
-      storyRef.current?.scrollTo({ top: storyRef.current.scrollHeight, behavior: "smooth" });
+      scrollToLatestAction();
     });
   }, [storyStarted, turns.length]);
 
@@ -242,6 +242,24 @@ export function ReaderPage() {
       }
     }
     setCurrentTurn(Math.min(Math.max(visibleTurn, 1), turns.length));
+  }
+
+  function scrollToLatestAction() {
+    const viewport = storyRef.current;
+    if (!viewport) {
+      return;
+    }
+    const latestTurn = viewport.querySelector<HTMLElement>(`[data-turn-index="${turns.length}"]`);
+    const action = latestTurn?.querySelector<HTMLElement>(".user-action");
+    if (!action) {
+      viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" });
+      return;
+    }
+    const viewportRect = viewport.getBoundingClientRect();
+    const actionRect = action.getBoundingClientRect();
+    const targetTop =
+      viewport.scrollTop + actionRect.top - viewportRect.top - (viewport.clientHeight - actionRect.height) / 2;
+    viewport.scrollTo({ top: targetTop, behavior: "smooth" });
   }
 
   function queueSelectionTranslation(delayMs = 0) {
