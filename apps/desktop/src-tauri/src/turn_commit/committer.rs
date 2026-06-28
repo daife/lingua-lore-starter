@@ -128,6 +128,33 @@ pub fn commit_turn(
         )?;
     }
 
+    for character in &output.new_characters {
+        if character_name_exists(&tx, &character.name)? {
+            continue;
+        }
+        let character_id = format!("char_{}", Uuid::new_v4().simple());
+        tx.execute(
+            "INSERT INTO characters
+             (id, name, role, personality, background, speaking_style, relationship_to_player, is_player_character, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0, ?8)",
+            params![
+                &character_id,
+                character.name.trim(),
+                character.role.trim(),
+                character.personality.trim(),
+                character.background.trim(),
+                character.speaking_style.trim(),
+                character.relationship_to_player.as_deref(),
+                &created_at
+            ],
+        )?;
+        tx.execute(
+            "INSERT OR REPLACE INTO relationship_state (character_id, dimension, value, updated_at)
+             VALUES (?1, 'trust', 0, ?2)",
+            params![&character_id, &created_at],
+        )?;
+    }
+
     for memory in &output.memory_candidates {
         let accepted = memory.importance >= 7 && character_exists(&tx, &memory.character_id)?;
         tx.execute(
@@ -212,6 +239,15 @@ fn character_exists(conn: &Connection, character_id: &str) -> Result<bool> {
     let count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM characters WHERE id = ?1",
         params![character_id],
+        |row| row.get(0),
+    )?;
+    Ok(count > 0)
+}
+
+fn character_name_exists(conn: &Connection, name: &str) -> Result<bool> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM characters WHERE lower(name) = lower(?1)",
+        params![name.trim()],
         |row| row.get(0),
     )?;
     Ok(count > 0)

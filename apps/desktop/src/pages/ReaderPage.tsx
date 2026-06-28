@@ -7,7 +7,7 @@ import { readSelectionSnapshot, SelectionSnapshot } from "../lib/selection";
 import type { ChoiceOutput, StoryTurnInput, StoryTurnPreview, TranslationResult } from "../lib/types";
 import { useAppStore } from "../stores/useAppStore";
 
-const BEGIN_STORY_ACTION = "Begin the story with a vivid opening scene.";
+const BEGIN_STORY_ACTION = "Initialize the story with a vivid opening scene.";
 const SELECTION_SETTLE_DELAY_MS = 320;
 const TRANSLATION_TIMEOUT_MS = 5000;
 

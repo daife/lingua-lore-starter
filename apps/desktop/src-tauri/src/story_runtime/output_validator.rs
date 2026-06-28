@@ -24,6 +24,19 @@ pub fn validate_turn_output(output: &TurnOutput) -> Result<()> {
             bail!("state update key is not allowed: {}", update.key);
         }
     }
+    if output.new_characters.len() > 3 {
+        bail!("new_characters may contain at most 3 characters");
+    }
+    for character in &output.new_characters {
+        if character.name.trim().is_empty()
+            || character.role.trim().is_empty()
+            || character.personality.trim().is_empty()
+            || character.background.trim().is_empty()
+            || character.speaking_style.trim().is_empty()
+        {
+            bail!("new character fields are required");
+        }
+    }
     for memory in &output.memory_candidates {
         if memory.importance < 1 || memory.importance > 10 {
             bail!("Memory importance must be 1-10");

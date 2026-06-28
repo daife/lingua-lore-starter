@@ -105,6 +105,17 @@ pub struct RelationshipUpdate {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewCharacter {
+    pub name: String,
+    pub role: String,
+    pub personality: String,
+    pub background: String,
+    pub speaking_style: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relationship_to_player: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TurnOutput {
     pub narration: String,
     pub dialogues: Vec<Dialogue>,
@@ -112,6 +123,8 @@ pub struct TurnOutput {
     pub scene_status: SceneStatus,
     pub choices: Vec<ChoiceOutput>,
     pub state_updates: Vec<StateUpdate>,
+    #[serde(default)]
+    pub new_characters: Vec<NewCharacter>,
     pub memory_candidates: Vec<MemoryCandidate>,
     pub relationship_updates: Vec<RelationshipUpdate>,
 }

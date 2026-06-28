@@ -5,7 +5,7 @@ import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { translate } from "../lib/i18n";
 import { SUPPORTED_STORY_LANGUAGES, isTranslationLanguage } from "../lib/languages";
 import { api } from "../lib/tauri";
-import type { CreateWorldRequest } from "../lib/types";
+import type { CreateCharacterRequest, CreateWorldRequest } from "../lib/types";
 import { useAppStore } from "../stores/useAppStore";
 
 export interface DropdownProps {
@@ -103,6 +103,16 @@ const WORLD_GENRES = [
 
 const TARGET_LANGUAGES = SUPPORTED_STORY_LANGUAGES;
 
+const EMPTY_PLAYER_CHARACTER: CreateCharacterRequest = {
+  name: "",
+  role: "",
+  personality: "",
+  background: "",
+  speaking_style: "",
+  relationship_to_player: null,
+  is_player_character: true
+};
+
 const DEFAULT_WORLD_FORM: CreateWorldRequest = {
   title: "",
   description: "",
@@ -110,7 +120,7 @@ const DEFAULT_WORLD_FORM: CreateWorldRequest = {
   target_language: "",
   language_level: "",
   narrative_style: "",
-  characters: []
+  characters: [EMPTY_PLAYER_CHARACTER]
 };
 
 export function WorldLibraryPage() {
@@ -133,6 +143,7 @@ export function WorldLibraryPage() {
   const [customGenre, setCustomGenre] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState(TARGET_LANGUAGES[0]);
   const [formValues, setFormValues] = useState<CreateWorldRequest>(DEFAULT_WORLD_FORM);
+  const playerCharacter = normalizePlayerCharacter(formValues.characters[0]);
 
   async function openWorld(worldId: string) {
     try {
@@ -162,7 +173,7 @@ export function WorldLibraryPage() {
         target_language: formValues.target_language || "English",
         language_level: formValues.language_level || "B1",
         narrative_style: formValues.narrative_style || "immersive literary prose",
-        characters: formValues.characters
+        characters: [normalizePlayerCharacter(formValues.characters[0])]
       });
       const next = await api.listWorlds();
       setWorlds(next);
@@ -181,6 +192,21 @@ export function WorldLibraryPage() {
     setFormValues((values) => ({ ...values, [field]: event.target.value }));
   }
 
+  function updatePlayerField(
+    field: "name" | "role" | "personality" | "background" | "speaking_style",
+    event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) {
+    setFormValues((values) => ({
+      ...values,
+      characters: [
+        normalizePlayerCharacter({
+          ...values.characters[0],
+          [field]: event.target.value
+        })
+      ]
+    }));
+  }
+
   async function generateDraft() {
     setOpenForm(true);
     setDrafting(true);
@@ -195,7 +221,8 @@ export function WorldLibraryPage() {
       });
       setFormValues({
         ...draft,
-        language_level: normalDifficultyLabel(selectedLanguage)
+        language_level: normalDifficultyLabel(selectedLanguage),
+        characters: [normalizePlayerCharacter(draft.characters[0])]
       });
       setShowGenrePicker(false);
       setCustomGenre("");
@@ -302,7 +329,7 @@ export function WorldLibraryPage() {
       ) : null}
 
       {openForm ? (
-        <form className="world-form" onSubmit={createWorld}>
+        <form className="world-form world-form-card" onSubmit={createWorld}>
           <input
             name="title"
             placeholder={t("worldTitle")}
@@ -311,9 +338,10 @@ export function WorldLibraryPage() {
             onChange={(event) => updateField("title", event)}
           />
           <textarea
+            className="world-premise-field"
             name="description"
             placeholder={t("premise")}
-            rows={4}
+            rows={7}
             value={formValues.description}
             onChange={(event) => updateField("description", event)}
           />
@@ -343,6 +371,49 @@ export function WorldLibraryPage() {
             value={formValues.narrative_style}
             onChange={(event) => updateField("narrative_style", event)}
           />
+          <div className="player-character-fields">
+            <div className="section-title compact-title">
+              <span>{t("playerCharacter")}</span>
+            </div>
+            <input
+              name="player_name"
+              placeholder={t("playerName")}
+              required
+              value={playerCharacter.name}
+              onChange={(event) => updatePlayerField("name", event)}
+            />
+            <input
+              name="player_role"
+              placeholder={t("playerRole")}
+              required
+              value={playerCharacter.role}
+              onChange={(event) => updatePlayerField("role", event)}
+            />
+            <textarea
+              name="player_personality"
+              placeholder={t("playerPersonality")}
+              required
+              rows={3}
+              value={playerCharacter.personality}
+              onChange={(event) => updatePlayerField("personality", event)}
+            />
+            <textarea
+              name="player_background"
+              placeholder={t("playerBackground")}
+              required
+              rows={3}
+              value={playerCharacter.background}
+              onChange={(event) => updatePlayerField("background", event)}
+            />
+            <textarea
+              name="player_speaking_style"
+              placeholder={t("playerSpeakingStyle")}
+              required
+              rows={3}
+              value={playerCharacter.speaking_style}
+              onChange={(event) => updatePlayerField("speaking_style", event)}
+            />
+          </div>
           <button className="primary-button" disabled={creating}>
             <Sparkles size={16} />
             {creating ? t("creating") : t("create")}
@@ -399,4 +470,16 @@ function normalDifficultyLabel(targetLanguage: string) {
     return "보통 난이도";
   }
   return "一般难度";
+}
+
+function normalizePlayerCharacter(character: Partial<CreateCharacterRequest> = EMPTY_PLAYER_CHARACTER): CreateCharacterRequest {
+  return {
+    name: character.name ?? EMPTY_PLAYER_CHARACTER.name,
+    role: character.role ?? EMPTY_PLAYER_CHARACTER.role,
+    personality: character.personality ?? EMPTY_PLAYER_CHARACTER.personality,
+    background: character.background ?? EMPTY_PLAYER_CHARACTER.background,
+    speaking_style: character.speaking_style ?? EMPTY_PLAYER_CHARACTER.speaking_style,
+    relationship_to_player: null,
+    is_player_character: true
+  };
 }

@@ -11,9 +11,7 @@ use uuid::Uuid;
 use zip::write::SimpleFileOptions;
 use zip::{ZipArchive, ZipWriter};
 
-use crate::domain::{
-    ApiProfile, CreateCharacterRequest, CreateWorldRequest, StorageInfo, WorldRecord,
-};
+use crate::domain::{ApiProfile, CreateWorldRequest, StorageInfo, WorldRecord};
 use crate::security;
 
 const APP_MIGRATION: &str = include_str!("../../migrations/app/001_init.sql");
@@ -149,29 +147,6 @@ pub fn create_world(state: &AppState, req: CreateWorldRequest) -> Result<WorldRe
     let world_conn = state.open_world_conn(&id)?;
     seed_world(&world_conn, &id, &req, &created_at)?;
     get_world(state, &id)
-}
-
-pub fn default_characters(target_language: &str) -> Vec<CreateCharacterRequest> {
-    vec![
-        CreateCharacterRequest {
-            name: "Player".to_string(),
-            role: "player protagonist".to_string(),
-            personality: "curious, adaptable, shaped by the user's choices".to_string(),
-            background: format!("The user's viewpoint character in this {target_language} story."),
-            speaking_style: "direct and natural".to_string(),
-            relationship_to_player: None,
-            is_player_character: true,
-        },
-        CreateCharacterRequest {
-            name: "Story Guide".to_string(),
-            role: "recurring guide".to_string(),
-            personality: "observant, patient, and lightly mysterious".to_string(),
-            background: "A recurring character who helps the player understand the world without breaking immersion.".to_string(),
-            speaking_style: "clear, vivid, and suitable for the target language level".to_string(),
-            relationship_to_player: Some("first trusted contact".to_string()),
-            is_player_character: false,
-        },
-    ]
 }
 
 pub fn delete_world(state: &AppState, world_id: &str) -> Result<()> {
@@ -374,25 +349,25 @@ fn seed_world(
     let scene_id = format!("scene_{}", Uuid::new_v4().simple());
     conn.execute(
         "INSERT INTO scenes (id, title, location, mood, summary, current_objective, status, created_at)
-         VALUES (?1, 'Opening Scene', 'Unspecified', 'expectant', '', 'Begin the story', 'active', ?2)",
+         VALUES (?1, 'Opening Scene', 'Unspecified', 'expectant', '', 'Initialize the story', 'active', ?2)",
         params![scene_id, created_at],
     )?;
     conn.execute(
         "INSERT INTO story_state (key, value, updated_at) VALUES ('scene.current', ?1, ?2)",
         params![scene_id, created_at],
     )?;
-    let characters = if req.characters.is_empty() {
-        default_characters(&req.target_language)
-    } else {
-        req.characters.clone()
-    };
-    let mut non_player_seen = false;
+    let characters = req.characters.clone();
+    if characters
+        .iter()
+        .filter(|character| character.is_player_character)
+        .count()
+        != 1
+    {
+        anyhow::bail!("exactly one player character is required");
+    }
     for (index, character) in characters.iter().enumerate() {
         let character_id = if character.is_player_character {
             "char_player".to_string()
-        } else if !non_player_seen {
-            non_player_seen = true;
-            "char_guide".to_string()
         } else {
             format!("char_{}", Uuid::new_v4().simple())
         };

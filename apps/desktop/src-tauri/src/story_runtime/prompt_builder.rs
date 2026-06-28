@@ -14,8 +14,9 @@ const SCHEMA_EXAMPLE: &str = r#"{
     {"label": "C", "text": "Look around for anyone watching you.", "intent": "check_surroundings", "risk": "medium"}
   ],
   "state_updates": [{"key": "flag.letter_delivered_to_elena", "value": "true", "reason": "The player handed over the letter."}],
-  "memory_candidates": [{"character_id": "char_guide", "content": "The guide became alarmed after seeing the seal.", "importance": 7, "tags": ["letter", "seal"]}],
-  "relationship_updates": [{"character_id": "char_guide", "dimension": "trust", "delta": 1, "reason": "The player delivered the letter as promised."}]
+  "new_characters": [{"name": "Elena", "role": "harbor archivist", "personality": "guarded, perceptive, quietly urgent", "background": "Elena keeps records of ships that should not officially exist.", "speaking_style": "precise, restrained, with flashes of fear", "relationship_to_player": "new contact"}],
+  "memory_candidates": [{"character_id": "char_player", "content": "The player delivered a sealed letter at Gray Harbor.", "importance": 7, "tags": ["letter", "harbor"]}],
+  "relationship_updates": []
 }"#;
 
 pub fn build_messages(context: &StoryContext) -> Result<Vec<ChatMessage>> {
@@ -34,8 +35,11 @@ pub fn build_messages(context: &StoryContext) -> Result<Vec<ChatMessage>> {
          Your final response must be valid json.\n\
          The json must follow the exact schema shown below.\n\
          The json must contain exactly 3 choices labeled A, B, C.\n\
+         new_characters must contain only important newly established non-player characters from this turn; use [] when no durable new character is needed, and never include the player character there.\n\
+         When the user's action initializes the story, use new_characters for any essential recurring non-player character established by the opening scene.\n\
          memory_candidates must refer to existing character ids from CHARACTERS and should record durable facts only.\n\
          relationship_updates must refer to existing non-player character ids from CHARACTERS and use small deltas from -2 to 2.\n\
+         Do not reference characters from new_characters in memory_candidates or relationship_updates until a later turn, after they are part of CHARACTERS.\n\
          State update keys may only use scene.location, scene.mood, scene.current_objective, or the story., quest., flag., inventory., relationship_hint. prefixes.\n\
          Do not wrap the json in markdown.\n\
          Do not output any text outside the json.\n\n\

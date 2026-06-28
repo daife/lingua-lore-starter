@@ -86,6 +86,15 @@ export interface RelationshipUpdate {
   reason: string;
 }
 
+export interface NewCharacter {
+  name: string;
+  role: string;
+  personality: string;
+  background: string;
+  speaking_style: string;
+  relationship_to_player?: string | null;
+}
+
 export interface TurnOutput {
   narration: string;
   dialogues: Dialogue[];
@@ -93,6 +102,7 @@ export interface TurnOutput {
   scene_status: SceneStatus;
   choices: ChoiceOutput[];
   state_updates: StateUpdate[];
+  new_characters: NewCharacter[];
   memory_candidates: MemoryCandidate[];
   relationship_updates: RelationshipUpdate[];
 }

@@ -17,20 +17,20 @@ const MAX_WORLD_DRAFT_REPAIR_ATTEMPTS: usize = 4;
 
 const WORLD_DRAFT_SCHEMA: &str = r#"{
   "title": "示例标题",
-  "description": "A vivid one-paragraph premise with the central conflict, playable role, tone, and opening hook.",
-  "genre": "玄幻 / xuanhuan fantasy",
+  "description": "一段可直接使用的世界前提，包含核心冲突、玩家位置、氛围和开场钩子。",
+  "genre": "玄幻",
   "target_language": "简体中文",
   "language_level": "一般难度",
-  "narrative_style": "immersive literary prose in the selected target language with interactive choice-driven pacing",
+  "narrative_style": "使用所选目标语言的沉浸式文学叙事，节奏适合互动选择推进",
   "characters": [
     {
-      "name": "Mira",
-      "role": "guide",
-      "personality": "observant, guarded, quietly kind",
-      "background": "A local ally who understands the world's central conflict.",
-      "speaking_style": "clear, concise, with vivid sensory details",
-      "relationship_to_player": "new ally",
-      "is_player_character": false
+      "name": "示例主角",
+      "role": "玩家视角角色",
+      "personality": "好奇、谨慎、会被玩家选择塑造",
+      "background": "玩家将在这个世界中扮演的身份与出发处境。",
+      "speaking_style": "自然、直接、符合目标语言难度",
+      "relationship_to_player": null,
+      "is_player_character": true
     }
   ]
 }"#;
@@ -102,9 +102,11 @@ pub async fn generate_world_draft(
             WORLD_DRAFT_SCHEMA
         )),
         ChatMessage::user(format!(
-            "Create one original world draft for this selected genre: {genre}.\n\
-             Use this target language for title, description, genre, and narrative_style: {target_language}.\n\
-             Generate 2 to 4 reusable characters. Character text should also use {target_language}, except stable ids are not needed.\n\
+             "Create one original world draft for this selected genre: {genre}.\n\
+             Use this target language for every visible draft field except target_language itself: {target_language}.\n\
+             Fill narrative_style in {target_language}, not English, unless the target language is English.\n\
+             Generate exactly one player viewpoint character in characters. Do not generate guides, companions, antagonists, supporting cast, or any other character.\n\
+             The player character must fill name, role, personality, background, and speaking_style in {target_language}; set relationship_to_player to null and is_player_character to true.\n\
              Keep target_language exactly as {target_language}.\n\
              Fill language_level in {target_language} with the normal-difficulty meaning of \"一般难度\". Use this exact value when appropriate: {difficulty_label}.\n\
              The generated description should be ready to use directly as the world's premise."
@@ -135,7 +137,10 @@ pub async fn generate_world_draft(
             last_error = Some("DeepSeek returned no draft content.".to_string());
         } else {
             match serde_json::from_str::<CreateWorldRequest>(&content) {
-                Ok(draft) => return Ok(normalize_world_draft(draft, genre, target_language)),
+                Ok(draft) => match validate_world_draft(&draft) {
+                    Ok(()) => return Ok(normalize_world_draft(draft, genre, target_language)),
+                    Err(err) => last_error = Some(format!("Invalid world draft json: {err}")),
+                },
                 Err(err) => last_error = Some(format!("Invalid world draft json: {err}")),
             }
         }
@@ -276,13 +281,33 @@ fn normalize_world_draft(
     draft.target_language = target_language.to_string();
     draft.language_level = normal_difficulty_label(target_language);
     if draft.narrative_style.trim().is_empty() {
-        draft.narrative_style =
-            format!("immersive literary prose in {target_language} with clear B1-level pacing");
+        draft.narrative_style = normal_narrative_style(target_language);
     }
-    if draft.characters.is_empty() {
-        draft.characters = crate::storage::default_characters(target_language);
+    if let Some(character) = draft.characters.first_mut() {
+        character.relationship_to_player = None;
+        character.is_player_character = true;
     }
+    draft.characters.truncate(1);
     draft
+}
+
+fn validate_world_draft(draft: &CreateWorldRequest) -> AppResult<()> {
+    if draft.characters.len() != 1 {
+        return Err("world draft must include exactly one player character".to_string());
+    }
+    let character = &draft.characters[0];
+    if !character.is_player_character {
+        return Err("world draft character must be the player character".to_string());
+    }
+    if character.name.trim().is_empty()
+        || character.role.trim().is_empty()
+        || character.personality.trim().is_empty()
+        || character.background.trim().is_empty()
+        || character.speaking_style.trim().is_empty()
+    {
+        return Err("world draft player character fields are required".to_string());
+    }
+    Ok(())
 }
 
 fn normal_difficulty_label(target_language: &str) -> String {
@@ -297,4 +322,18 @@ fn normal_difficulty_label(target_language: &str) -> String {
         return "보통 난이도".to_string();
     }
     "一般难度".to_string()
+}
+
+fn normal_narrative_style(target_language: &str) -> String {
+    let normalized = target_language.trim().to_lowercase();
+    if normalized.contains("english") {
+        return "Immersive literary prose with clear interactive pacing".to_string();
+    }
+    if normalized.contains("日本") {
+        return "没入感のある文学的な文体で、選択によって進む明快なテンポ".to_string();
+    }
+    if normalized.contains("한국") {
+        return "선택으로 전개되는 명확한 흐름의 몰입형 문학 서술".to_string();
+    }
+    "沉浸式文学叙事，节奏清晰，适合互动选择推进".to_string()
 }
