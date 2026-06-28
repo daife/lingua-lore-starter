@@ -98,7 +98,7 @@ pub async fn generate_world_draft(
             "You generate concise world-creation drafts for an interactive language-learning novel app.\n\
              This is not the story-turn generator and you must not use tools.\n\
              Return valid json only, without markdown or commentary.\n\
-             The json must have exactly these keys and string values:\n{}",
+             The json object must match this schema exactly, including nested arrays and boolean fields:\n{}",
             WORLD_DRAFT_SCHEMA
         )),
         ChatMessage::user(format!(
@@ -295,27 +295,6 @@ fn normal_difficulty_label(target_language: &str) -> String {
     }
     if normalized.contains("한국") {
         return "보통 난이도".to_string();
-    }
-    if normalized.contains("français") {
-        return "Difficulté normale".to_string();
-    }
-    if normalized.contains("deutsch") {
-        return "Normale Schwierigkeit".to_string();
-    }
-    if normalized.contains("español") {
-        return "Dificultad normal".to_string();
-    }
-    if normalized.contains("português") {
-        return "Dificuldade normal".to_string();
-    }
-    if normalized.contains("italiano") {
-        return "Difficoltà normale".to_string();
-    }
-    if normalized.contains("русский") {
-        return "Обычная сложность".to_string();
-    }
-    if normalized.contains("العربية") {
-        return "صعوبة عادية".to_string();
     }
     "一般难度".to_string()
 }

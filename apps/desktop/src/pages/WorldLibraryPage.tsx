@@ -398,26 +398,5 @@ function normalDifficultyLabel(targetLanguage: string) {
   if (normalized.includes("한국")) {
     return "보통 난이도";
   }
-  if (normalized.includes("français")) {
-    return "Difficulté normale";
-  }
-  if (normalized.includes("deutsch")) {
-    return "Normale Schwierigkeit";
-  }
-  if (normalized.includes("español")) {
-    return "Dificultad normal";
-  }
-  if (normalized.includes("português")) {
-    return "Dificuldade normal";
-  }
-  if (normalized.includes("italiano")) {
-    return "Difficoltà normale";
-  }
-  if (normalized.includes("русский")) {
-    return "Обычная сложность";
-  }
-  if (normalized.includes("العربية")) {
-    return "صعوبة عادية";
-  }
   return "一般难度";
 }
