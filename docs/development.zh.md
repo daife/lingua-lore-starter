@@ -1,83 +1,83 @@
-# Development
+# 开发
 
 [**English**](development.md) | [**中文**](development.zh.md)
 
 ---
 
-## Install
+## 安装依赖
 
-From the repository root:
+在仓库根目录运行：
 
 ```powershell
 npm install
 ```
 
-## Local Development
+## 本地开发
 
-Run the Tauri development app:
+运行 Tauri 开发应用：
 
 ```powershell
 npm run dev
 ```
 
-This delegates to:
+它会委托到：
 
 ```powershell
 npm --workspace @lingua-lore/desktop run tauri:dev
 ```
 
-## Checks
+## 检查
 
-Type-check the frontend:
+检查前端类型：
 
 ```powershell
 npm run typecheck
 ```
 
-Check the Rust backend:
+检查 Rust 后端：
 
 ```powershell
 cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 ```
 
-## Desktop Build
+## 桌面构建
 
-Build the Tauri desktop bundle:
+构建 Tauri 桌面 bundle：
 
 ```powershell
 npm --workspace @lingua-lore/desktop run tauri -- build
 ```
 
-For a faster compile check without generating installers:
+更快的编译检查，不生成安装包：
 
 ```powershell
 npm --workspace @lingua-lore/desktop run tauri -- build --debug --no-bundle
 ```
 
-Useful Windows bundle outputs are under:
+Windows bundle 输出位置：
 
 ```text
 apps/desktop/src-tauri/target/release/bundle/
 ```
 
-## Android Build Prerequisites
+## Android 构建前置条件
 
-Install:
+安装：
 
 - Android Studio
 - Android SDK Platform Tools
 - Android SDK Build Tools
-- Android SDK Platform, currently `android-36`
-- Android NDK, currently `27.0.12077973`
+- Android SDK Platform，当前 `android-36`
+- Android NDK，当前 `27.0.12077973`
 - Rust Android targets
 
-Add Rust Android targets:
+添加 Rust Android targets：
 
 ```powershell
 rustup target add aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
 ```
 
-Recommended environment variables on Windows:
+Windows 推荐环境变量：
 
 ```powershell
 $env:ANDROID_HOME="$env:LOCALAPPDATA\Android\Sdk"
@@ -85,19 +85,19 @@ $env:ANDROID_SDK_ROOT="$env:LOCALAPPDATA\Android\Sdk"
 $env:NDK_HOME="$env:ANDROID_HOME\ndk\27.0.12077973"
 ```
 
-Initialize the Tauri Android project once:
+首次初始化 Tauri Android 项目：
 
 ```powershell
 npm --workspace @lingua-lore/desktop run tauri -- android init
 ```
 
-Build a release APK:
+构建 release APK：
 
 ```powershell
 npm --workspace @lingua-lore/desktop run tauri -- android build --apk --target aarch64
 ```
 
-APK output:
+APK 输出位置：
 
 ```text
 apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/
