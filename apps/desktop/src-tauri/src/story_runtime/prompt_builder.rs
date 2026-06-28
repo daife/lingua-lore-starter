@@ -34,11 +34,18 @@ pub fn build_messages(context: &StoryContext) -> Result<Vec<ChatMessage>> {
          You may call read-only tools when you need additional information about characters, character memory, or past events.\n\n\
          Your final response must be valid json.\n\
          The json must follow the exact schema shown below.\n\
+         Every top-level field shown in the schema is required on every final response, even when its value is an empty array.\n\
          The json must contain exactly 3 choices labeled A, B, C.\n\
+         Every dialogue object must include speaker and text.\n\
+         Every choice object must include label, text, intent, and risk.\n\
+         Every state_updates object must include key, value, and a non-empty reason; use [] when there is no durable state change.\n\
          new_characters must contain only important newly established non-player characters from this turn; use [] when no durable new character is needed, and never include the player character there.\n\
+         Every new_characters object must include name, role, personality, background, speaking_style, and relationship_to_player; relationship_to_player may be null.\n\
          When the user's action initializes the story, use new_characters for any essential recurring non-player character established by the opening scene.\n\
          memory_candidates must refer to existing character ids from CHARACTERS and should record durable facts only.\n\
-         relationship_updates must refer to existing non-player character ids from CHARACTERS and use small deltas from -2 to 2.\n\
+         Every memory_candidates object must include character_id, content, importance, and tags; use [] when no durable character memory is worth recording.\n\
+         relationship_updates must refer to existing non-player character ids from CHARACTERS and use small deltas from -2 to 2; use [] when no meaningful relationship value changed this turn.\n\
+         Every relationship_updates object must include character_id, dimension, delta, and a non-empty reason.\n\
          Do not reference characters from new_characters in memory_candidates or relationship_updates until a later turn, after they are part of CHARACTERS.\n\
          State update keys may only use scene.location, scene.mood, scene.current_objective, or the story., quest., flag., inventory., relationship_hint. prefixes.\n\
          Do not wrap the json in markdown.\n\

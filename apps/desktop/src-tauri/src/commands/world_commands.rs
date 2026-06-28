@@ -98,7 +98,10 @@ pub async fn generate_world_draft(
             "You generate concise world-creation drafts for an interactive language-learning novel app.\n\
              This is not the story-turn generator and you must not use tools.\n\
              Return valid json only, without markdown or commentary.\n\
-             The json object must match this schema exactly, including nested arrays and boolean fields:\n{}",
+             The json object must match this schema exactly, including nested arrays and boolean fields.\n\
+             Every field shown in the schema is required and must use the same json type as the example.\n\
+             characters must be an array with exactly one object, and that object must include name, role, personality, background, speaking_style, relationship_to_player, and is_player_character.\n\
+             Do not omit fields. Do not add extra fields. Use null only for relationship_to_player.\n{}",
             WORLD_DRAFT_SCHEMA
         )),
         ChatMessage::user(format!(
