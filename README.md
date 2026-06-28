@@ -41,7 +41,7 @@ Your choices leave real traces. Characters remember what you did. The world bend
 
 - **Choice-driven narrative** with exactly three curated options per turn, each tagged with intent and risk level
 - **Free-text input** for when the presets don't fit — the LLM interprets your action in-world
-- **Selection translation** lives outside the LLM context (Youdao API), so translation never pollutes or inflates the story state
+- **Selection translation** uses Youdao's public dictionary endpoint for Chinese, English, Japanese, and Korean dictionary pairs, and never pollutes or inflates the LLM story context
 - **Quick mode** for deeper, more coherent generation at higher token cost
 - **Auto version check** on startup — never miss an update
 
@@ -51,12 +51,12 @@ Lingua Lore isn't a chat wrapper with a fantasy skin. It's a **stateful narrativ
 
 ### ✅ Completed
 
-- [x] World creation & management (CRUD)
+- [x] World creation, opening, deletion, export, and import
 - [x] AI-assisted world draft generation
 - [x] Immersive story reading experience
 - [x] Branching choice-driven narrative
 - [x] Free-text action input
-- [x] Independent selection translation (Youdao)
+- [x] Independent multilingual selection translation (Youdao dictionary pairs for Chinese, English, Japanese, and Korean)
 - [x] World export / import (ZIP format)
 - [x] Multiple API profile support
 - [x] Quick mode (higher quality, higher token cost)
@@ -66,7 +66,6 @@ Lingua Lore isn't a chat wrapper with a fantasy skin. It's a **stateful narrativ
 
 ### 🚧 In Progress
 
-- [ ] Multi-language translation (full paragraph, more language pairs)
 - [ ] Character relationship viewer
 - [ ] Thinking mode support
 - [ ] Reference mode (upload novel as reference material)
