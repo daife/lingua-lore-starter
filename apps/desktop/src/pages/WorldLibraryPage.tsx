@@ -3,6 +3,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { translate } from "../lib/i18n";
+import { SUPPORTED_STORY_LANGUAGES, isTranslationLanguage } from "../lib/languages";
 import { api } from "../lib/tauri";
 import type { CreateWorldRequest } from "../lib/types";
 import { useAppStore } from "../stores/useAppStore";
@@ -100,20 +101,7 @@ const WORLD_GENRES = [
   "自定义"
 ];
 
-const TARGET_LANGUAGES = [
-  "简体中文",
-  "English",
-  "繁體中文",
-  "日本語",
-  "한국어",
-  "Français",
-  "Deutsch",
-  "Español",
-  "Português",
-  "Italiano",
-  "Русский",
-  "العربية"
-];
+const TARGET_LANGUAGES = SUPPORTED_STORY_LANGUAGES;
 
 const DEFAULT_WORLD_FORM: CreateWorldRequest = {
   title: "",
@@ -288,7 +276,11 @@ export function WorldLibraryPage() {
             <Dropdown
               value={selectedLanguage}
               options={TARGET_LANGUAGES}
-              onChange={setSelectedLanguage}
+              onChange={(language) => {
+                if (isTranslationLanguage(language)) {
+                  setSelectedLanguage(language);
+                }
+              }}
               placeholder={t("language")}
               disabled={drafting}
             />

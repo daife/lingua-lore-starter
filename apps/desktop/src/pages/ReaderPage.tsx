@@ -1,29 +1,19 @@
 import { FormEvent, MouseEvent, UIEvent, useEffect, useRef, useState } from "react";
 import { Loader2, Send, Wand2 } from "lucide-react";
 import { translate } from "../lib/i18n";
+import { supportedTranslationLanguageForSource } from "../lib/languages";
 import { api } from "../lib/tauri";
 import { readSelectionSnapshot, SelectionSnapshot } from "../lib/selection";
 import type { ChoiceOutput, StoryTurnInput, StoryTurnPreview, TranslationResult } from "../lib/types";
 import { useAppStore } from "../stores/useAppStore";
 
 const BEGIN_STORY_ACTION = "Begin the story with a vivid opening scene.";
+const SELECTION_SETTLE_DELAY_MS = 220;
+const TRANSLATION_TIMEOUT_MS = 5000;
 
 interface PreviewCacheEntry {
   promise: Promise<StoryTurnPreview>;
   result?: StoryTurnPreview;
-}
-
-function translationTargetForStoryLanguage(language: string) {
-  const normalized = language.trim().toLowerCase();
-  if (
-    normalized.includes("中文") ||
-    normalized.includes("chinese") ||
-    normalized.includes("简体") ||
-    normalized.includes("繁體")
-  ) {
-    return "English";
-  }
-  return "Chinese";
 }
 
 export function ReaderPage() {
@@ -31,6 +21,7 @@ export function ReaderPage() {
     activeWorld,
     activeSceneId,
     appLanguage,
+    translationLanguage,
     turns,
     choices,
     loading,
@@ -47,7 +38,9 @@ export function ReaderPage() {
   const turnPositionTimerRef = useRef<number | null>(null);
   const selectionTimerRef = useRef<number | null>(null);
   const selectionGenerationRef = useRef(0);
-  const lastSelectionKeyRef = useRef("");
+  const selectionPointerDownRef = useRef(false);
+  const pendingSelectionChangeRef = useRef(false);
+  const lastTranslatedSelectionKeyRef = useRef("");
   const previewCacheRef = useRef<Map<string, PreviewCacheEntry>>(new Map());
   const [selection, setSelection] = useState<SelectionSnapshot | null>(null);
   const [translation, setTranslation] = useState<TranslationResult | null>(null);
@@ -89,7 +82,10 @@ export function ReaderPage() {
       return;
     }
     const handleSelectionChange = () => {
-      queueSelectionTranslation(320);
+      pendingSelectionChangeRef.current = true;
+      if (!selectionPointerDownRef.current) {
+        queueSelectionTranslation(SELECTION_SETTLE_DELAY_MS);
+      }
     };
     document.addEventListener("selectionchange", handleSelectionChange);
     return () => document.removeEventListener("selectionchange", handleSelectionChange);
@@ -266,20 +262,21 @@ export function ReaderPage() {
     if (selectionTimerRef.current) {
       window.clearTimeout(selectionTimerRef.current);
     }
+    const generation = selectionGenerationRef.current + 1;
+    selectionGenerationRef.current = generation;
+    setTranslating(false);
     selectionTimerRef.current = window.setTimeout(() => {
-      void translateCurrentSelection();
+      pendingSelectionChangeRef.current = false;
+      void translateCurrentSelection(generation);
     }, delayMs);
   }
 
-  async function translateCurrentSelection() {
-    const generation = selectionGenerationRef.current + 1;
-    selectionGenerationRef.current = generation;
+  async function translateCurrentSelection(generation: number) {
     const snapshot = readSelectionSnapshot(storyRef.current);
     const selectionKey = snapshot ? `${snapshot.text}|${Math.round(snapshot.x)}|${Math.round(snapshot.y)}` : "";
-    if (selectionKey && selectionKey === lastSelectionKeyRef.current) {
+    if (selectionKey && selectionKey === lastTranslatedSelectionKeyRef.current && translation) {
       return;
     }
-    lastSelectionKeyRef.current = selectionKey;
     setSelection(snapshot);
     setTranslation(null);
     if (!snapshot) {
@@ -288,15 +285,10 @@ export function ReaderPage() {
     }
     setTranslating(true);
     try {
-      const result = await api.translateSelection({
-        worldId: currentWorld.id,
-        text: snapshot.text,
-        context: snapshot.context,
-        sourceLanguage: currentWorld.target_language,
-        targetLanguage: translationTargetForStoryLanguage(currentWorld.target_language)
-      });
+      const result = await translateSelectionOnce(snapshot, generation);
       if (selectionGenerationRef.current === generation) {
         setTranslation(result);
+        lastTranslatedSelectionKeyRef.current = selectionKey;
       }
     } catch (err) {
       if (selectionGenerationRef.current === generation) {
@@ -309,12 +301,72 @@ export function ReaderPage() {
     }
   }
 
-  async function handleMouseUp(_event: MouseEvent) {
-    if (window.matchMedia("(pointer: coarse)").matches) {
-      queueSelectionTranslation(180);
-      return;
+  async function translateSelectionOnce(snapshot: SelectionSnapshot, generation: number) {
+    if (selectionGenerationRef.current !== generation) {
+      throw new Error("Translation superseded");
     }
-    await translateCurrentSelection();
+    return new Promise<TranslationResult>((resolve, reject) => {
+      const timeoutId = window.setTimeout(() => {
+        reject(new Error("Translation timed out"));
+      }, TRANSLATION_TIMEOUT_MS);
+      api
+        .translateSelection({
+          worldId: currentWorld.id,
+          text: snapshot.text,
+          context: snapshot.context,
+          sourceLanguage: currentWorld.target_language,
+          targetLanguage: supportedTranslationLanguageForSource(currentWorld.target_language, translationLanguage)
+        })
+        .then(resolve)
+        .catch(reject)
+        .finally(() => {
+          window.clearTimeout(timeoutId);
+        });
+    });
+  }
+
+  function handleSelectionPointerDown() {
+    selectionPointerDownRef.current = true;
+    pendingSelectionChangeRef.current = false;
+    selectionGenerationRef.current += 1;
+    setTranslating(false);
+    if (selectionTimerRef.current) {
+      window.clearTimeout(selectionTimerRef.current);
+    }
+  }
+
+  function handleSelectionPointerUp() {
+    selectionPointerDownRef.current = false;
+    if (pendingSelectionChangeRef.current || readSelectionSnapshot(storyRef.current)) {
+      queueSelectionTranslation(SELECTION_SETTLE_DELAY_MS);
+    }
+  }
+
+  function handleMouseUp(_event: MouseEvent) {
+    handleSelectionPointerUp();
+  }
+
+  function handleTouchEnd() {
+    handleSelectionPointerUp();
+  }
+
+  function handleTouchCancel() {
+    selectionPointerDownRef.current = false;
+    pendingSelectionChangeRef.current = false;
+  }
+
+  function handleMouseDown() {
+    handleSelectionPointerDown();
+  }
+
+  function handleTouchStart() {
+    handleSelectionPointerDown();
+  }
+
+  function handlePointerLeave() {
+    if (selectionPointerDownRef.current) {
+      handleSelectionPointerUp();
+    }
   }
 
   return (
@@ -326,7 +378,17 @@ export function ReaderPage() {
         </div>
       </header>
 
-      <div className="story-viewport" ref={storyRef} onMouseUp={handleMouseUp} onScroll={handleStoryScroll}>
+      <div
+        className="story-viewport"
+        ref={storyRef}
+        onMouseDown={handleMouseDown}
+        onMouseLeave={handlePointerLeave}
+        onMouseUp={handleMouseUp}
+        onTouchCancel={handleTouchCancel}
+        onTouchEnd={handleTouchEnd}
+        onTouchStart={handleTouchStart}
+        onScroll={handleStoryScroll}
+      >
         {storyStarted ? (
           <div className={showTurnPosition ? "turn-position visible" : "turn-position"}>
             {t("turn")} {currentTurn || 1} / {turns.length}

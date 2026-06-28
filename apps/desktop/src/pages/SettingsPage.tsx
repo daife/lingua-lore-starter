@@ -3,6 +3,11 @@ import { Download, Save, Zap } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { APP_LANGUAGE_OPTIONS, translate, type AppLanguage } from "../lib/i18n";
+import {
+  isTranslationLanguage,
+  supportedTranslationLanguageForSource,
+  supportedTranslationLanguagesForSource
+} from "../lib/languages";
 import { api } from "../lib/tauri";
 import { useAppStore } from "../stores/useAppStore";
 import type { ApiProfile } from "../lib/types";
@@ -20,10 +25,13 @@ const DEFAULT_PROFILE: ApiProfile = {
 export function SettingsPanel() {
   const {
     apiProfile,
+    activeWorld,
     appLanguage,
+    translationLanguage,
     quickMode,
     setApiProfile,
     setAppLanguage,
+    setTranslationLanguage,
     setSettingsError,
     setQuickMode,
     setWorlds
@@ -36,6 +44,13 @@ export function SettingsPanel() {
   useEffect(() => {
     setSaved(false);
   }, [apiProfile]);
+
+  useEffect(() => {
+    const supportedLanguage = supportedTranslationLanguageForSource(activeWorld?.target_language, translationLanguage);
+    if (supportedLanguage !== translationLanguage) {
+      setTranslationLanguage(supportedLanguage);
+    }
+  }, [activeWorld?.target_language, setTranslationLanguage, translationLanguage]);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -84,6 +99,7 @@ export function SettingsPanel() {
   const profile = apiProfile ?? DEFAULT_PROFILE;
   const selectedLanguageLabel =
     APP_LANGUAGE_OPTIONS.find((option) => option.value === appLanguage)?.label ?? APP_LANGUAGE_OPTIONS[0].label;
+  const translationLanguageOptions = supportedTranslationLanguagesForSource(activeWorld?.target_language);
 
   return (
     <form className="settings-form" onSubmit={save}>
@@ -119,6 +135,20 @@ export function SettingsPanel() {
             }
           }}
           placeholder={t("appLanguage")}
+          allowFreeText={false}
+        />
+      </label>
+      <label>
+        {t("translationLanguage")}
+        <Dropdown
+          value={translationLanguage}
+          options={translationLanguageOptions}
+          onChange={(language) => {
+            if (isTranslationLanguage(language)) {
+              setTranslationLanguage(language);
+            }
+          }}
+          placeholder={t("translationLanguage")}
           allowFreeText={false}
         />
       </label>

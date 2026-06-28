@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use reqwest::Client;
 use serde_json::Value;
+use std::time::Duration;
 
 use crate::domain::{KeyValue, TranslationResult};
 
@@ -11,8 +12,10 @@ pub async fn translate(
 ) -> Result<TranslationResult> {
     let encoded = urlencoding::encode(word.trim());
     let dicts = dicts_for_languages(source_language, target_language);
-    let url = format!("https://dict.youdao.com/jsonapi?q={encoded}&dicts={dicts}");
-    let response = Client::new().post(url).send().await?;
+    let le = le_for_languages(source_language, target_language);
+    let url = format!("https://dict.youdao.com/jsonapi?q={encoded}&le={le}&dicts={dicts}");
+    let client = Client::builder().timeout(Duration::from_secs(5)).build()?;
+    let response = client.post(url).send().await?;
     let status = response.status();
     let text = response.text().await?;
     if !status.is_success() {
@@ -35,56 +38,31 @@ fn parse_youdao_response(
     let mut phrases = Vec::new();
     let mut examples = Vec::new();
 
-    let preferred_dictionary =
-        if is_chinese_language(source_language) && is_english_language(target_language) {
-            "ce"
-        } else {
-            "ec"
-        };
-    let fallback_dictionary = if preferred_dictionary == "ec" {
-        "ce"
-    } else {
-        "ec"
-    };
+    let dictionaries = dictionary_codes(source_language, target_language);
+    if dictionaries.iter().any(|dictionary| *dictionary == "newhh") {
+        if let Some(result) = parse_newhh_dictionary(&json) {
+            translated_text = result.translated_text;
+            us_phone = result.phone;
+        }
+    }
 
-    if let Some(word) = first_dictionary_word(&json, preferred_dictionary)
-        .or_else(|| first_dictionary_word(&json, fallback_dictionary))
-    {
-        us_phone = word
-            .get("usphone")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string();
-        uk_phone = word
-            .get("ukphone")
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string();
-        if let Some(trs) = word.get("trs").and_then(Value::as_array) {
-            let meanings = trs
-                .iter()
-                .flat_map(|tr_obj| {
-                    tr_obj
-                        .get("tr")
-                        .and_then(Value::as_array)
-                        .into_iter()
-                        .flatten()
-                })
-                .filter_map(|tr| {
-                    tr.get("l")
-                        .and_then(|l| l.get("i"))
-                        .and_then(Value::as_array)
-                })
-                .map(|items| {
-                    items
-                        .iter()
-                        .filter_map(Value::as_str)
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                })
-                .filter(|meaning| !meaning.is_empty())
-                .collect::<Vec<_>>();
+    if translated_text.trim().is_empty() {
+        if let Some(word) = dictionaries
+            .iter()
+            .find_map(|dictionary| first_dictionary_word(&json, dictionary))
+        {
+            us_phone = first_string(word, &["usphone", "phone", "pinyin"]);
+            uk_phone = first_string(word, &["ukphone"]);
+            let meanings = collect_word_meanings(word);
             translated_text = meanings.join(",\n ");
+        }
+    }
+
+    if us_phone.is_empty() && uk_phone.is_empty() {
+        if let Some((fallback_us_phone, fallback_uk_phone)) = first_phonetics(&json, &dictionaries)
+        {
+            us_phone = fallback_us_phone;
+            uk_phone = fallback_uk_phone;
         }
     }
 
@@ -193,19 +171,214 @@ fn parse_youdao_response(
     })
 }
 
-fn dicts_for_languages(source_language: &str, target_language: &str) -> &'static str {
-    if is_chinese_language(source_language) && is_english_language(target_language) {
-        "%7B%22count%22%3A99%2C%22dicts%22%3A%5B%5B%22ce%22%2C%22fanyi%22%2C%22blng_sents_part%22%2C%22ec%22%2C%22rel_word%22%2C%22phrs%22%5D%5D%7D"
-    } else {
-        "%7B%22count%22%3A99%2C%22dicts%22%3A%5B%5B%22ec%22%2C%22fanyi%22%2C%22blng_sents_part%22%2C%22ce%22%2C%22rel_word%22%2C%22phrs%22%5D%5D%7D"
+fn dicts_for_languages(source_language: &str, target_language: &str) -> String {
+    let dicts = dictionary_codes(source_language, target_language);
+    let dicts_json = serde_json::json!({
+        "count": 10,
+        "dicts": [dicts]
+    });
+    urlencoding::encode(&dicts_json.to_string()).into_owned()
+}
+
+fn le_for_languages(source_language: &str, target_language: &str) -> &'static str {
+    match (
+        language_kind(source_language),
+        language_kind(target_language),
+    ) {
+        (LanguageKind::Japanese, _) | (_, LanguageKind::Japanese) => "ja",
+        (LanguageKind::Korean, _) | (_, LanguageKind::Korean) => "ko",
+        (LanguageKind::English, _) | (_, LanguageKind::English) => "en",
+        _ => "auto",
+    }
+}
+
+fn dictionary_codes(source_language: &str, target_language: &str) -> Vec<&'static str> {
+    match (
+        language_kind(source_language),
+        language_kind(target_language),
+    ) {
+        (LanguageKind::Chinese, LanguageKind::English) => vec!["ce", "ec"],
+        (LanguageKind::English, LanguageKind::Chinese) => vec!["ec", "ce"],
+        (LanguageKind::Japanese, LanguageKind::Chinese) => vec!["jc"],
+        (LanguageKind::Chinese, LanguageKind::Japanese) => vec!["cj"],
+        (LanguageKind::Korean, LanguageKind::Chinese) => vec!["kc"],
+        (LanguageKind::Chinese, LanguageKind::Korean) => vec!["ck"],
+        (LanguageKind::English, LanguageKind::English) => vec!["ee", "ec"],
+        (LanguageKind::Chinese, LanguageKind::Chinese) => vec!["newhh", "yw", "ce"],
+        _ => vec!["ec", "ce"],
     }
 }
 
 fn first_dictionary_word<'a>(json: &'a Value, dictionary: &str) -> Option<&'a Value> {
-    json.get(dictionary)
-        .and_then(|v| v.get("word"))
-        .and_then(|v| v.as_array())
-        .and_then(|arr| arr.first())
+    let word = json.get(dictionary).and_then(|v| v.get("word"))?;
+    if let Some(words) = word.as_array() {
+        return words.first();
+    }
+    word.as_object().map(|_| word)
+}
+
+fn first_phonetics(json: &Value, dictionaries: &[&str]) -> Option<(String, String)> {
+    dictionaries
+        .iter()
+        .filter_map(|dictionary| first_dictionary_word(json, dictionary))
+        .filter_map(|word| {
+            let us_phone = first_string(word, &["usphone", "phone", "pinyin"]);
+            let uk_phone = first_string(word, &["ukphone"]);
+            if us_phone.is_empty() && uk_phone.is_empty() {
+                None
+            } else {
+                Some((us_phone, uk_phone))
+            }
+        })
+        .next()
+}
+
+struct NewhhParseResult {
+    translated_text: String,
+    phone: String,
+}
+
+fn parse_newhh_dictionary(json: &Value) -> Option<NewhhParseResult> {
+    let entries = json
+        .get("newhh")
+        .and_then(|v| v.get("dataList"))
+        .and_then(Value::as_array)?;
+    let mut phone = String::new();
+    let mut meanings = Vec::new();
+    for entry in entries.iter().take(3) {
+        let pinyin = entry.get("pinyin").and_then(Value::as_str).unwrap_or("");
+        if phone.is_empty() {
+            phone = pinyin.to_string();
+        }
+        let senses = entry.get("sense").and_then(Value::as_array);
+        let mut sense_texts = Vec::new();
+        if let Some(senses) = senses {
+            for sense in senses.iter().take(5) {
+                let category = sense.get("cat").and_then(Value::as_str).unwrap_or("");
+                let definitions = sense
+                    .get("def")
+                    .and_then(Value::as_array)
+                    .map(|defs| {
+                        defs.iter()
+                            .filter_map(Value::as_str)
+                            .collect::<Vec<_>>()
+                            .join("；")
+                    })
+                    .unwrap_or_default();
+                if definitions.is_empty() {
+                    continue;
+                }
+                if category.is_empty() {
+                    sense_texts.push(definitions);
+                } else {
+                    sense_texts.push(format!("{category}: {definitions}"));
+                }
+            }
+        }
+        if !sense_texts.is_empty() {
+            if pinyin.is_empty() {
+                meanings.push(sense_texts.join("；"));
+            } else {
+                meanings.push(format!("{pinyin} {}", sense_texts.join("；")));
+            }
+        }
+    }
+    if meanings.is_empty() {
+        return None;
+    }
+    Some(NewhhParseResult {
+        translated_text: meanings.join(",\n "),
+        phone,
+    })
+}
+
+fn collect_word_meanings(word: &Value) -> Vec<String> {
+    let mut meanings = Vec::new();
+    if let Some(trs) = word.get("trs").and_then(Value::as_array) {
+        for tr_obj in trs {
+            let pos = tr_obj.get("pos").and_then(Value::as_str).unwrap_or("");
+            if let Some(translations) = tr_obj.get("tr").and_then(Value::as_array) {
+                for translation in translations {
+                    let meaning = translation
+                        .get("l")
+                        .and_then(|l| l.get("i"))
+                        .map(flatten_translation_value)
+                        .unwrap_or_default();
+                    if meaning.is_empty() {
+                        continue;
+                    }
+                    if pos.is_empty() || meaning.starts_with(pos) {
+                        meanings.push(meaning);
+                    } else {
+                        meanings.push(format!("{pos} {meaning}"));
+                    }
+                }
+            }
+        }
+    }
+    meanings
+}
+
+fn first_string(value: &Value, keys: &[&str]) -> String {
+    keys.iter()
+        .find_map(|key| value.get(*key).and_then(Value::as_str))
+        .unwrap_or("")
+        .to_string()
+}
+
+fn flatten_translation_value(value: &Value) -> String {
+    if let Some(text) = value.as_str() {
+        return text.trim().to_string();
+    }
+    if let Some(items) = value.as_array() {
+        return flatten_translation_items(items);
+    }
+    String::new()
+}
+
+fn flatten_translation_items(items: &[Value]) -> String {
+    items
+        .iter()
+        .filter_map(translation_item_text)
+        .collect::<Vec<_>>()
+        .join(", ")
+        .trim()
+        .to_string()
+}
+
+fn translation_item_text(item: &Value) -> Option<String> {
+    if let Some(text) = item.as_str() {
+        return Some(text.trim().to_string());
+    }
+    item.get("#text")
+        .and_then(Value::as_str)
+        .map(|text| text.trim().to_string())
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum LanguageKind {
+    Chinese,
+    English,
+    Japanese,
+    Korean,
+    Other,
+}
+
+fn language_kind(language: &str) -> LanguageKind {
+    if is_chinese_language(language) {
+        return LanguageKind::Chinese;
+    }
+    if language.trim().eq_ignore_ascii_case("english") {
+        return LanguageKind::English;
+    }
+    let normalized = language.trim().to_lowercase();
+    if normalized.contains("日本") || normalized.contains("japanese") || normalized == "ja" {
+        return LanguageKind::Japanese;
+    }
+    if normalized.contains("한국") || normalized.contains("korean") || normalized == "ko" {
+        return LanguageKind::Korean;
+    }
+    LanguageKind::Other
 }
 
 fn is_chinese_language(language: &str) -> bool {
@@ -214,8 +387,5 @@ fn is_chinese_language(language: &str) -> bool {
         || normalized.contains("中文")
         || normalized.contains("简体")
         || normalized.contains("繁體")
-}
-
-fn is_english_language(language: &str) -> bool {
-    language.trim().eq_ignore_ascii_case("english")
+        || normalized == "zh-chs"
 }

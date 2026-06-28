@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { defaultAppLanguage, type AppLanguage } from "../lib/i18n";
+import { defaultTranslationLanguage, type TranslationLanguage } from "../lib/languages";
 import type { ApiProfile, ChoiceOutput, StoryTurnResult, TurnOutput, WorldRecord } from "../lib/types";
 
 export interface ReaderTurn {
@@ -18,6 +19,7 @@ interface AppStore {
   loading: boolean;
   quickMode: boolean;
   appLanguage: AppLanguage;
+  translationLanguage: TranslationLanguage;
   libraryError?: string;
   readerError?: string;
   settingsError?: string;
@@ -29,6 +31,7 @@ interface AppStore {
   setLoading: (loading: boolean) => void;
   setQuickMode: (quickMode: boolean) => void;
   setAppLanguage: (language: AppLanguage) => void;
+  setTranslationLanguage: (language: TranslationLanguage) => void;
   setLibraryError: (error?: string) => void;
   setReaderError: (error?: string) => void;
   setSettingsError: (error?: string) => void;
@@ -41,6 +44,7 @@ export const useAppStore = create<AppStore>((set) => ({
   loading: false,
   quickMode: false,
   appLanguage: defaultAppLanguage(),
+  translationLanguage: defaultTranslationLanguage(),
   setWorlds: (worlds) => set({ worlds }),
   setActiveWorld: (activeWorld, activeSceneId, turns = []) => {
     const lastTurn = turns[turns.length - 1];
@@ -69,6 +73,12 @@ export const useAppStore = create<AppStore>((set) => ({
       window.localStorage.setItem("lingua-lore-app-language", appLanguage);
     }
     set({ appLanguage });
+  },
+  setTranslationLanguage: (translationLanguage) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("lingua-lore-translation-language", translationLanguage);
+    }
+    set({ translationLanguage });
   },
   setLibraryError: (libraryError) => set({ libraryError }),
   setReaderError: (readerError) => set({ readerError }),
