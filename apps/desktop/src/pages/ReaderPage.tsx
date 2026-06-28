@@ -9,6 +9,8 @@ import { useAppStore } from "../stores/useAppStore";
 
 const BEGIN_STORY_ACTION = "Begin the story with a vivid opening scene.";
 const SELECTION_SETTLE_DELAY_MS = 220;
+const TOUCH_SELECTION_PROBE_MS = 900;
+const TOUCH_SELECTION_PROBE_INTERVAL_MS = 120;
 const TRANSLATION_TIMEOUT_MS = 5000;
 
 interface PreviewCacheEntry {
@@ -258,21 +260,32 @@ export function ReaderPage() {
     viewport.scrollTo({ top: targetTop, behavior: "smooth" });
   }
 
-  function queueSelectionTranslation(delayMs = 0) {
+  function queueSelectionTranslation(delayMs = 0, probeUntilMs = 0) {
     if (selectionTimerRef.current) {
       window.clearTimeout(selectionTimerRef.current);
     }
     const generation = selectionGenerationRef.current + 1;
     selectionGenerationRef.current = generation;
     setTranslating(false);
+    scheduleSelectionTranslation(generation, delayMs, probeUntilMs ? Date.now() + probeUntilMs : 0);
+  }
+
+  function scheduleSelectionTranslation(generation: number, delayMs: number, probeUntilTime: number) {
     selectionTimerRef.current = window.setTimeout(() => {
       pendingSelectionChangeRef.current = false;
-      void translateCurrentSelection(generation);
+      void translateCurrentSelection(generation, probeUntilTime);
     }, delayMs);
   }
 
-  async function translateCurrentSelection(generation: number) {
+  async function translateCurrentSelection(generation: number, probeUntilTime = 0) {
+    if (selectionGenerationRef.current !== generation) {
+      return;
+    }
     const snapshot = readSelectionSnapshot(storyRef.current);
+    if (!snapshot && probeUntilTime > Date.now()) {
+      scheduleSelectionTranslation(generation, TOUCH_SELECTION_PROBE_INTERVAL_MS, probeUntilTime);
+      return;
+    }
     const selectionKey = snapshot ? `${snapshot.text}|${Math.round(snapshot.x)}|${Math.round(snapshot.y)}` : "";
     if (selectionKey && selectionKey === lastTranslatedSelectionKeyRef.current && translation) {
       return;
@@ -347,7 +360,8 @@ export function ReaderPage() {
   }
 
   function handleTouchEnd() {
-    handleSelectionPointerUp();
+    selectionPointerDownRef.current = false;
+    queueSelectionTranslation(SELECTION_SETTLE_DELAY_MS, TOUCH_SELECTION_PROBE_MS);
   }
 
   function handleTouchCancel() {
