@@ -12,11 +12,15 @@ pub fn validate_turn_output(output: &TurnOutput) -> Result<()> {
     }
     let labels: Vec<&str> = output.choices.iter().map(|c| c.label.as_str()).collect();
     if labels != ["A", "B", "C"] {
-        bail!("Choices must be labeled A, B, C");
+        bail!("Choices must be labeled A, B, C; got {:?}", labels);
     }
     for choice in &output.choices {
         if !matches!(choice.risk.as_str(), "low" | "medium" | "high") {
-            bail!("Invalid risk level");
+            bail!(
+                "Invalid risk level for choice {}: {:?}. Expected one of: low, medium, high",
+                choice.label,
+                choice.risk
+            );
         }
     }
     for update in &output.state_updates {
@@ -39,7 +43,11 @@ pub fn validate_turn_output(output: &TurnOutput) -> Result<()> {
     }
     for memory in &output.memory_candidates {
         if memory.importance < 1 || memory.importance > 10 {
-            bail!("Memory importance must be 1-10");
+            bail!(
+                "Memory importance must be 1-10 for character {}: {}",
+                memory.character_id,
+                memory.importance
+            );
         }
         if memory.content.trim().is_empty() {
             bail!("Memory content is required");
@@ -48,10 +56,19 @@ pub fn validate_turn_output(output: &TurnOutput) -> Result<()> {
     let mut relationship_keys = HashSet::new();
     for update in &output.relationship_updates {
         if update.delta < -2 || update.delta > 2 {
-            bail!("Relationship delta must be between -2 and 2");
+            bail!(
+                "Relationship delta must be between -2 and 2 for {} / {}: {}",
+                update.character_id,
+                update.dimension,
+                update.delta
+            );
         }
         if !relationship_keys.insert((&update.character_id, &update.dimension)) {
-            bail!("duplicate relationship update");
+            bail!(
+                "duplicate relationship update for {} / {}",
+                update.character_id,
+                update.dimension
+            );
         }
     }
     Ok(())

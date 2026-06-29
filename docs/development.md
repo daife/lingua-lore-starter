@@ -40,26 +40,6 @@ Check the Rust backend:
 cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 ```
 
-## Desktop Build
-
-Build the Tauri desktop bundle:
-
-```powershell
-npm --workspace @lingua-lore/desktop run tauri -- build
-```
-
-For a faster compile check without generating installers:
-
-```powershell
-npm --workspace @lingua-lore/desktop run tauri -- build --debug --no-bundle
-```
-
-Useful Windows bundle outputs are under:
-
-```text
-apps/desktop/src-tauri/target/release/bundle/
-```
-
 ## Android Build Prerequisites
 
 Install:

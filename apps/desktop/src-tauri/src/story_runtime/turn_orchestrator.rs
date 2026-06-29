@@ -9,7 +9,7 @@ use crate::storage::AppState;
 use crate::story_runtime::context_loader::load_context;
 use crate::story_runtime::output_parser::parse_turn_output;
 use crate::story_runtime::output_validator::validate_turn_output;
-use crate::story_runtime::prompt_builder::build_messages;
+use crate::story_runtime::prompt_builder::{build_messages, TURN_OUTPUT_VALIDATION_RULES};
 use crate::tool_runtime::{execute_readonly, read_only_tool_definitions};
 use crate::turn_commit::committer::commit_turn;
 
@@ -101,7 +101,7 @@ pub async fn preview_story_turn(
                 repair_attempts += 1;
                 last_validation_error = Some(err.to_string());
                 messages.push(ChatMessage::user(format!(
-                    "Your previous response was invalid json or failed validation: {err}. Return the same turn again as valid json only, with exactly 3 choices labeled A, B, C."
+                    "Your previous response was invalid json or failed validation: {err}. Return the same turn again as valid json only.\n\nValidation constraints:\n{TURN_OUTPUT_VALIDATION_RULES}"
                 )));
             }
         }

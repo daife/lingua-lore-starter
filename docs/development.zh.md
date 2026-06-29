@@ -40,26 +40,6 @@ npm run typecheck
 cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 ```
 
-## 桌面构建
-
-构建 Tauri 桌面 bundle：
-
-```powershell
-npm --workspace @lingua-lore/desktop run tauri -- build
-```
-
-更快的编译检查，不生成安装包：
-
-```powershell
-npm --workspace @lingua-lore/desktop run tauri -- build --debug --no-bundle
-```
-
-Windows bundle 输出位置：
-
-```text
-apps/desktop/src-tauri/target/release/bundle/
-```
-
 ## Android 构建前置条件
 
 安装：

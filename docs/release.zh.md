@@ -4,7 +4,7 @@
 
 ---
 
-发布版本从本地构建产物创建。仓库不依赖 GitHub Actions 远程构建来打包 release。
+发布版本从本地 Android 构建产物创建。本 starter 仓库只发布 Android APK，不依赖 GitHub Actions 远程构建来打包 release。
 
 ## 版本文件
 
@@ -29,12 +29,6 @@ cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 
 ## 构建产物
 
-构建 Windows：
-
-```powershell
-npm --workspace @lingua-lore/desktop run tauri -- build
-```
-
 构建 Android APK：
 
 ```powershell
@@ -44,7 +38,6 @@ npm --workspace @lingua-lore/desktop run tauri -- android build --apk --target a
 常见产物位置：
 
 ```text
-apps/desktop/src-tauri/target/release/bundle/
 apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/
 ```
 
@@ -70,10 +63,8 @@ git push origin v0.1.x
 用明确的本地产物路径创建 GitHub release，例如：
 
 ```powershell
-$msi = "apps/desktop/src-tauri/target/release/bundle/msi/Lingua Lore_0.1.x_x64_en-US.msi"
-$exe = "apps/desktop/src-tauri/target/release/bundle/nsis/Lingua Lore_0.1.x_x64-setup.exe"
 $apk = "apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/Lingua Lore_0.1.x_android-arm64.apk"
-gh release create v0.1.x --title "Lingua Lore v0.1.x" --notes "Local release notes." "$msi" "$exe" "$apk"
+gh release create v0.1.x --title "Lingua Lore v0.1.x" --notes "Local release notes." "$apk"
 ```
 
 GitHub release asset 的下载文件名可能会把空格显示为点号，例如

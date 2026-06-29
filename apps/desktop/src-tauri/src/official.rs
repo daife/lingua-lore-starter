@@ -160,7 +160,9 @@ pub fn android_id(state: &AppState, window: &WebviewWindow) -> Result<String> {
 
 fn normalize_phone(raw: String) -> Result<String> {
     if raw == PHONE_PERMISSION_REQUESTED {
-        return Err(anyhow!("已申请手机号验证权限，请授权后再次点击验证手机号。"));
+        return Err(anyhow!(
+            "已申请手机号验证权限，请授权后再次点击验证手机号。"
+        ));
     }
     let digits: String = raw.chars().filter(|ch| ch.is_ascii_digit()).collect();
     let normalized = if digits.len() > 11 {

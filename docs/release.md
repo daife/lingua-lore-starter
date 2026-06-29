@@ -4,7 +4,7 @@
 
 ---
 
-Releases are created from local build artifacts. The repository does not rely on GitHub Actions remote builds for release packaging.
+Releases are created from local Android build artifacts. This starter repository only publishes Android APK releases and does not rely on GitHub Actions remote builds for release packaging.
 
 ## Version Files
 
@@ -29,22 +29,15 @@ cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml
 
 ## Build Artifacts
 
-Build Windows:
-
-```powershell
-npm --workspace @lingua-lore/desktop run tauri -- build
-```
-
 Build Android APK:
 
 ```powershell
 npm --workspace @lingua-lore/desktop run tauri -- android build --apk --target aarch64
 ```
 
-Typical artifact locations:
+Typical artifact location:
 
 ```text
-apps/desktop/src-tauri/target/release/bundle/
 apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/
 ```
 
@@ -70,10 +63,8 @@ git push origin v0.1.x
 Create the GitHub release from explicit local artifact paths, for example:
 
 ```powershell
-$msi = "apps/desktop/src-tauri/target/release/bundle/msi/Lingua Lore_0.1.x_x64_en-US.msi"
-$exe = "apps/desktop/src-tauri/target/release/bundle/nsis/Lingua Lore_0.1.x_x64-setup.exe"
 $apk = "apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/Lingua Lore_0.1.x_android-arm64.apk"
-gh release create v0.1.x --title "Lingua Lore v0.1.x" --notes "Local release notes." "$msi" "$exe" "$apk"
+gh release create v0.1.x --title "Lingua Lore v0.1.x" --notes "Local release notes." "$apk"
 ```
 
 GitHub release asset download names may show spaces as dots, for example
