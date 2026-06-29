@@ -10,7 +10,26 @@ apps/desktop/dist/
 # Tauri and Rust build output
 target/
 apps/desktop/src-tauri/target/
-apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/gen/*
+!apps/desktop/src-tauri/gen/
+!apps/desktop/src-tauri/gen/android/
+apps/desktop/src-tauri/gen/android/*
+!apps/desktop/src-tauri/gen/android/app/
+apps/desktop/src-tauri/gen/android/app/*
+!apps/desktop/src-tauri/gen/android/app/src/
+apps/desktop/src-tauri/gen/android/app/src/*
+!apps/desktop/src-tauri/gen/android/app/src/main/
+apps/desktop/src-tauri/gen/android/app/src/main/*
+!apps/desktop/src-tauri/gen/android/app/src/main/AndroidManifest.xml
+!apps/desktop/src-tauri/gen/android/app/src/main/java/
+apps/desktop/src-tauri/gen/android/app/src/main/java/*
+!apps/desktop/src-tauri/gen/android/app/src/main/java/com/
+apps/desktop/src-tauri/gen/android/app/src/main/java/com/*
+!apps/desktop/src-tauri/gen/android/app/src/main/java/com/lingualore/
+apps/desktop/src-tauri/gen/android/app/src/main/java/com/lingualore/*
+!apps/desktop/src-tauri/gen/android/app/src/main/java/com/lingualore/desktop/
+apps/desktop/src-tauri/gen/android/app/src/main/java/com/lingualore/desktop/*
+!apps/desktop/src-tauri/gen/android/app/src/main/java/com/lingualore/desktop/MainActivity.kt
 
 # Environment files
 .env

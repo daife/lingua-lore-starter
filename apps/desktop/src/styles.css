@@ -161,6 +161,15 @@ button {
   -webkit-user-select: text;
 }
 
+.announcement-dialog {
+  max-height: min(72dvh, 620px);
+}
+
+.announcement-copy {
+  max-height: 48dvh;
+  overflow-y: auto;
+}
+
 .reader-shell {
   position: relative;
   grid-column: 1;
@@ -233,6 +242,14 @@ button {
   color: #e6edf3;
 }
 
+.night-mode .official-card,
+.night-mode .quota-meter,
+.night-mode .invite-chip {
+  border-color: #30363d;
+  background: #0f172a;
+  color: #e6edf3;
+}
+
 .night-mode .world-item,
 .night-mode .world-open-button,
 .night-mode .world-form-card,
@@ -269,6 +286,12 @@ button {
 .night-mode .scene-strip span,
 .night-mode .phones span,
 .night-mode .turn-position {
+  color: #8b949e;
+}
+
+.night-mode .official-card p,
+.night-mode .official-card-header span,
+.night-mode .quota-grid span {
   color: #8b949e;
 }
 
@@ -373,6 +396,104 @@ button {
 .settings-form {
   display: grid;
   gap: 12px;
+}
+
+.official-panel {
+  align-content: start;
+}
+
+.official-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #d4cbbd;
+  border-radius: 8px;
+  background: #f8f5ee;
+  padding: 14px;
+}
+
+.official-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.official-card-header div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.official-card-header span {
+  color: #6e665c;
+  font-size: 12px;
+}
+
+.official-card-header strong {
+  overflow-wrap: anywhere;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.official-card p {
+  margin: 0;
+  color: #5f5548;
+  font-size: 13px;
+}
+
+.invite-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid #c9beae;
+  border-radius: 999px;
+  background: #fffdf8;
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.invite-chip span {
+  overflow-wrap: anywhere;
+}
+
+.quota-meter {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border: 1px solid #d4cbbd;
+  border-radius: 999px;
+  background: #ebe6db;
+}
+
+.quota-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #213f3a;
+  transition: width 0.2s ease;
+}
+
+.quota-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.quota-grid span {
+  color: #6e665c;
+}
+
+.quota-grid strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.register-form {
+  display: grid;
+  gap: 10px;
 }
 
 .world-panel {

@@ -1,6 +1,6 @@
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
-use tauri::State;
+use tauri::{State, WebviewWindow};
 use tokio::time::{sleep, Duration};
 
 use crate::deepseek::{ChatCompletionRequest, ChatMessage, DeepSeekClient, ResponseFormat};
@@ -9,7 +9,7 @@ use crate::domain::{
 };
 use crate::storage::{
     create_world as persist_world, delete_world as remove_world, export_world_zip as zip_world,
-    import_world_zip as unzip_world, list_worlds as query_worlds, load_api_profile, AppState,
+    import_world_zip as unzip_world, list_worlds as query_worlds, official_api_profile, AppState,
 };
 
 const MAX_MODEL_REQUEST_ATTEMPTS: usize = 4;
@@ -76,11 +76,11 @@ pub fn import_world(state: State<AppState>, bytes: Vec<u8>) -> AppResult<WorldRe
 #[tauri::command]
 pub async fn generate_world_draft(
     state: State<'_, AppState>,
+    window: WebviewWindow,
     request: GenerateWorldDraftRequest,
 ) -> AppResult<CreateWorldRequest> {
-    let profile = load_api_profile(&state)
-        .map_err(|err| err.to_string())?
-        .ok_or_else(|| "Please configure a DeepSeek API profile first.".to_string())?;
+    let android_id = crate::official::android_id(&state, &window).map_err(|err| err.to_string())?;
+    let profile = official_api_profile(&state, android_id).map_err(|err| err.to_string())?;
     let client = DeepSeekClient::new(profile.clone());
     let genre = if request.genre.trim().is_empty() {
         "玄幻"

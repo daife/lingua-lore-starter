@@ -1,5 +1,5 @@
-import { FormEvent, useEffect, useState } from "react";
-import { Download, Save, Zap } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { BadgeCheck, Download, RefreshCw, ShieldCheck, Smartphone, Ticket, Zap } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { APP_LANGUAGE_OPTIONS, translate, type AppLanguage } from "../lib/i18n";
@@ -10,26 +10,24 @@ import {
 } from "../lib/languages";
 import { api } from "../lib/tauri";
 import { useAppStore } from "../stores/useAppStore";
-import type { ApiProfile } from "../lib/types";
+import type { DetectedPhone, QuotaInfo } from "../lib/types";
 import { Dropdown } from "./WorldLibraryPage";
 
-const DEFAULT_PROFILE: ApiProfile = {
-  id: "",
-  name: "DeepSeek",
-  base_url: "https://api.deepseek.com/beta",
-  model: "deepseek-v4-flash",
-  api_key: "",
-  use_strict_tools: true
-};
+function formatTokens(value?: number | null) {
+  if (typeof value !== "number") {
+    return "--";
+  }
+  return new Intl.NumberFormat("zh-CN").format(value);
+}
 
 export function SettingsPanel() {
   const {
-    apiProfile,
+    officialAccount,
     activeWorld,
     appLanguage,
     translationLanguage,
     quickMode,
-    setApiProfile,
+    setOfficialAccount,
     setAppLanguage,
     setTranslationLanguage,
     setSettingsError,
@@ -37,13 +35,15 @@ export function SettingsPanel() {
     setWorlds
   } = useAppStore();
   const t = (key: Parameters<typeof translate>[1], value?: string) => translate(appLanguage, key, value);
-  const [saved, setSaved] = useState(false);
   const [importing, setImporting] = useState(false);
   const [status, setStatus] = useState("");
-
-  useEffect(() => {
-    setSaved(false);
-  }, [apiProfile]);
+  const [quota, setQuota] = useState<QuotaInfo | null>(null);
+  const [quotaLoading, setQuotaLoading] = useState(false);
+  const [detectedPhone, setDetectedPhone] = useState<DetectedPhone | null>(null);
+  const [detectingPhone, setDetectingPhone] = useState(false);
+  const [middleFour, setMiddleFour] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
+  const [registering, setRegistering] = useState(false);
 
   useEffect(() => {
     const supportedLanguage = supportedTranslationLanguageForSource(activeWorld?.target_language, translationLanguage);
@@ -52,23 +52,48 @@ export function SettingsPanel() {
     }
   }, [activeWorld?.target_language, setTranslationLanguage, translationLanguage]);
 
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
+  async function refreshQuota() {
+    setQuotaLoading(true);
+    setStatus("");
     try {
-      const profile = await api.saveApiProfile({
-        id: apiProfile?.id ?? "",
-        name: String(form.get("name") || "DeepSeek"),
-        base_url: String(form.get("base_url") || DEFAULT_PROFILE.base_url),
-        model: String(form.get("model") || DEFAULT_PROFILE.model),
-        api_key: String(form.get("api_key") || ""),
-        use_strict_tools: true
-      });
-      setApiProfile(profile);
-      setSaved(true);
-      setStatus("");
+      setQuota(await api.refreshQuota());
     } catch (err) {
       setSettingsError(String(err));
+    } finally {
+      setQuotaLoading(false);
+    }
+  }
+
+  async function detectPhone() {
+    setDetectingPhone(true);
+    setStatus("");
+    try {
+      setDetectedPhone(await api.detectRegistrationPhone());
+    } catch (err) {
+      setSettingsError(String(err));
+    } finally {
+      setDetectingPhone(false);
+    }
+  }
+
+  async function register(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setRegistering(true);
+    setStatus("");
+    try {
+      const account = await api.registerOfficialAccount({
+        middle_four: middleFour,
+        invite_code: inviteCode.trim() || null
+      });
+      setOfficialAccount(account);
+      setDetectedPhone(null);
+      setMiddleFour("");
+      setInviteCode("");
+      setStatus(t("registrationDone"));
+    } catch (err) {
+      setSettingsError(String(err));
+    } finally {
+      setRegistering(false);
     }
   }
 
@@ -96,33 +121,116 @@ export function SettingsPanel() {
     }
   }
 
-  const profile = apiProfile ?? DEFAULT_PROFILE;
   const selectedLanguageLabel =
     APP_LANGUAGE_OPTIONS.find((option) => option.value === appLanguage)?.label ?? APP_LANGUAGE_OPTIONS[0].label;
   const translationLanguageOptions = supportedTranslationLanguagesForSource(activeWorld?.target_language);
+  const usageRatio = Math.max(0, Math.min(1, quota?.usage_ratio ?? 0));
+  const quotaPercent = Math.round(usageRatio * 100);
+  const identityLabel = useMemo(() => {
+    if (officialAccount?.registered) {
+      return officialAccount.masked_phone ?? t("registeredAccount");
+    }
+    return officialAccount?.android_id ? t("trialDeviceReady") : t("trialDeviceUnknown");
+  }, [officialAccount, t]);
 
   return (
-    <form className="settings-form" onSubmit={save}>
-      <label>
-        {t("name")}
-        <input name="name" defaultValue={profile.name} />
-      </label>
-      <label>
-        {t("baseUrl")}
-        <input name="base_url" defaultValue={profile.base_url} />
-      </label>
-      <label>
-        {t("model")}
-        <input name="model" defaultValue={profile.model} />
-      </label>
-      <label>
-        {t("apiKey")}
-        <input name="api_key" type="password" defaultValue={profile.api_key} />
-      </label>
-      <button className="primary-button">
-        <Save size={16} />
-        {saved ? t("saved") : t("saveApiProfile")}
-      </button>
+    <div className="settings-form official-panel">
+      <section className="official-card account-card">
+        <div className="official-card-header">
+          <div>
+            <span>{t("officialTrial")}</span>
+            <strong>{identityLabel}</strong>
+          </div>
+          {officialAccount?.registered ? <BadgeCheck size={22} /> : <Smartphone size={22} />}
+        </div>
+        <p>{officialAccount?.registered ? t("registeredAccountCopy") : t("trialAccountCopy")}</p>
+        {officialAccount?.invite_code ? (
+          <div className="invite-chip">
+            <Ticket size={14} />
+            <span>{officialAccount.invite_code}</span>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="official-card quota-card">
+        <div className="official-card-header">
+          <div>
+            <span>{t("quota")}</span>
+            <strong>{quota ? `${quotaPercent}%` : t("quotaNotLoaded")}</strong>
+          </div>
+          <button
+            className="icon-button"
+            type="button"
+            onClick={() => void refreshQuota()}
+            disabled={quotaLoading}
+            aria-label={t("refreshQuota")}
+            title={t("refreshQuota")}
+          >
+            <RefreshCw size={17} />
+          </button>
+        </div>
+        <div className="quota-meter" aria-hidden="true">
+          <span style={{ width: `${quotaPercent}%` }} />
+        </div>
+        <div className="quota-grid">
+          <span>{t("usedTokens")}</span>
+          <strong>{formatTokens(quota?.used_tokens)}</strong>
+          <span>{t("dailyLimit")}</span>
+          <strong>{formatTokens(quota?.daily_limit)}</strong>
+          {quota?.pool_balance != null ? (
+            <>
+              <span>{t("poolBalance")}</span>
+              <strong>{formatTokens(quota.pool_balance)}</strong>
+            </>
+          ) : null}
+        </div>
+      </section>
+
+      {!officialAccount?.registered ? (
+        <section className="official-card register-card">
+          <div className="official-card-header">
+            <div>
+              <span>{t("phoneRegistration")}</span>
+              <strong>{detectedPhone?.masked_phone ?? t("verifyPhoneOwner")}</strong>
+            </div>
+            <ShieldCheck size={22} />
+          </div>
+          <p>{t("phoneRegistrationCopy")}</p>
+          <button className="command-button" type="button" onClick={() => void detectPhone()} disabled={detectingPhone}>
+            <Smartphone size={16} />
+            {detectingPhone ? t("detectingPhone") : t("detectPhone")}
+          </button>
+          {detectedPhone ? (
+            <form className="register-form" onSubmit={register}>
+              <label>
+                {t("middleFour")}
+                <input
+                  inputMode="numeric"
+                  maxLength={4}
+                  name="middle_four"
+                  value={middleFour}
+                  onChange={(event) => setMiddleFour(event.target.value.replace(/\D/g, "").slice(0, 4))}
+                  placeholder="1234"
+                />
+              </label>
+              <label>
+                {t("inviteCode")}
+                <input
+                  name="invite_code"
+                  value={inviteCode}
+                  onChange={(event) => setInviteCode(event.target.value)}
+                  placeholder={t("inviteCodeOptional")}
+                />
+              </label>
+              <button className="primary-button" disabled={registering || middleFour.length !== 4}>
+                <ShieldCheck size={16} />
+                {registering ? t("registering") : t("register")}
+              </button>
+            </form>
+          ) : null}
+        </section>
+      ) : null}
+
       <label>
         {t("appLanguage")}
         <Dropdown
@@ -166,6 +274,6 @@ export function SettingsPanel() {
         {importing ? t("importing") : t("importWorld")}
       </button>
       {status ? <p className="settings-status">{status}</p> : null}
-    </form>
+    </div>
   );
 }

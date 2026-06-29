@@ -1,7 +1,7 @@
 mod commands;
 mod deepseek;
 mod domain;
-mod security;
+mod official;
 mod storage;
 mod story_runtime;
 mod tool_runtime;
@@ -23,6 +23,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::account_commands::get_official_account,
+            commands::account_commands::detect_registration_phone,
+            commands::account_commands::register_official_account,
+            commands::account_commands::refresh_quota,
             commands::world_commands::list_worlds,
             commands::world_commands::create_world,
             commands::world_commands::delete_world,
@@ -32,11 +36,10 @@ pub fn run() {
             commands::world_commands::get_world_bootstrap,
             commands::story_commands::preview_story_turn,
             commands::story_commands::commit_story_turn_preview,
-            commands::settings_commands::get_api_profile,
-            commands::settings_commands::save_api_profile,
             commands::settings_commands::get_storage_info,
             commands::translation_commands::translate_selection,
             commands::version_commands::check_version,
+            commands::version_commands::check_announcement,
             commands::version_commands::quit_app
         ])
         .run(tauri::generate_context!())

@@ -25,3 +25,12 @@ CREATE TABLE IF NOT EXISTS global_settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS official_accounts (
+  android_id TEXT PRIMARY KEY,
+  phone TEXT NOT NULL,
+  invite_code TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  pool_balance INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL
+);

@@ -52,6 +52,43 @@ pub struct ApiProfile {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OfficialAccount {
+    pub android_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phone: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub masked_phone: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invite_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pool_balance: Option<i64>,
+    pub registered: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DetectedPhone {
+    pub masked_phone: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegisterOfficialAccountRequest {
+    pub middle_four: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invite_code: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuotaInfo {
+    pub used_tokens: i64,
+    pub daily_limit: i64,
+    pub usage_ratio: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pool_balance: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageInfo {
     pub data_dir: String,
     pub app_db_path: String,

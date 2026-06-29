@@ -11,13 +11,12 @@ use uuid::Uuid;
 use zip::write::SimpleFileOptions;
 use zip::{ZipArchive, ZipWriter};
 
-use crate::domain::{ApiProfile, CreateWorldRequest, StorageInfo, WorldRecord};
-use crate::security;
-
+use crate::domain::{ApiProfile, CreateWorldRequest, OfficialAccount, StorageInfo, WorldRecord};
 const APP_MIGRATION: &str = include_str!("../../migrations/app/001_init.sql");
 const WORLD_MIGRATION: &str = include_str!("../../migrations/world/001_init.sql");
-const DEEPSEEK_BASE_URL: &str = "https://api.deepseek.com";
-const DEEPSEEK_BETA_BASE_URL: &str = "https://api.deepseek.com/beta";
+const OFFICIAL_API_BASE_URL: &str = "http://47.109.110.160:8000/v1";
+const OFFICIAL_CHAT_BASE_URL: &str = "http://47.109.110.160:8000/v1/beta";
+const OFFICIAL_MODEL: &str = "deepseek-v4-flash";
 const WORLD_EXPORT_VERSION: u32 = 1;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -402,64 +401,128 @@ fn seed_world(
     Ok(())
 }
 
-pub fn load_api_profile(state: &AppState) -> Result<Option<ApiProfile>> {
+pub fn official_api_base_url() -> &'static str {
+    OFFICIAL_API_BASE_URL
+}
+
+pub fn load_official_account(state: &AppState, android_id: String) -> Result<OfficialAccount> {
     let conn = state.app_conn()?;
     let mut stmt = conn.prepare(
-        "SELECT id, name, base_url, model, encrypted_api_key, use_strict_tools
-         FROM api_profiles ORDER BY created_at DESC LIMIT 1",
+        "SELECT phone, invite_code, user_id, pool_balance
+         FROM official_accounts WHERE android_id = ?1 LIMIT 1",
     )?;
-    let mut rows = stmt.query([])?;
+    let mut rows = stmt.query(params![&android_id])?;
     if let Some(row) = rows.next()? {
-        let encrypted: String = row.get(4)?;
-        Ok(Some(normalize_api_profile(ApiProfile {
-            id: row.get(0)?,
-            name: row.get(1)?,
-            base_url: row.get(2)?,
-            model: row.get(3)?,
-            api_key: security::decrypt_secret(&encrypted),
-            use_strict_tools: row.get::<_, i64>(5)? == 1,
-        })))
+        let phone: String = row.get(0)?;
+        let invite_code: String = row.get(1)?;
+        let user_id: String = row.get(2)?;
+        let pool_balance: i64 = row.get(3)?;
+        Ok(OfficialAccount {
+            android_id,
+            masked_phone: Some(mask_phone(&phone)),
+            phone: Some(phone),
+            invite_code: Some(invite_code),
+            user_id: Some(user_id),
+            pool_balance: Some(pool_balance),
+            registered: true,
+        })
     } else {
-        Ok(None)
+        Ok(OfficialAccount {
+            android_id,
+            phone: None,
+            masked_phone: None,
+            invite_code: None,
+            user_id: None,
+            pool_balance: None,
+            registered: false,
+        })
     }
 }
 
-pub fn save_api_profile(state: &AppState, profile: ApiProfile) -> Result<ApiProfile> {
+pub fn save_official_account(state: &AppState, account: &OfficialAccount) -> Result<()> {
+    let phone = account
+        .phone
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("registered phone is required"))?;
+    let invite_code = account
+        .invite_code
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("invite code is required"))?;
+    let user_id = account
+        .user_id
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("user id is required"))?;
+    let pool_balance = account.pool_balance.unwrap_or(0);
     let conn = state.app_conn()?;
-    let profile = normalize_api_profile(profile);
-    let id = if profile.id.trim().is_empty() {
-        format!("api_{}", Uuid::new_v4().simple())
-    } else {
-        profile.id.clone()
-    };
     conn.execute(
-        "INSERT OR REPLACE INTO api_profiles
-         (id, name, base_url, model, encrypted_api_key, use_strict_tools, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT OR REPLACE INTO official_accounts
+         (android_id, phone, invite_code, user_id, pool_balance, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         params![
-            &id,
-            &profile.name,
-            &profile.base_url,
-            &profile.model,
-            security::encrypt_secret(&profile.api_key),
-            1,
+            &account.android_id,
+            phone,
+            invite_code,
+            user_id,
+            pool_balance,
             now()
         ],
     )?;
-    Ok(ApiProfile { id, ..profile })
+    Ok(())
 }
 
-fn normalize_api_profile(mut profile: ApiProfile) -> ApiProfile {
-    profile.base_url = normalize_deepseek_base_url(&profile.base_url);
-    profile.use_strict_tools = true;
-    profile
-}
-
-fn normalize_deepseek_base_url(base_url: &str) -> String {
-    let trimmed = base_url.trim().trim_end_matches('/');
-    if trimmed == DEEPSEEK_BASE_URL {
-        DEEPSEEK_BETA_BASE_URL.to_string()
+pub fn official_auth_token(state: &AppState, android_id: String) -> Result<String> {
+    let account = load_official_account(state, android_id.clone())?;
+    if let Some(phone) = account.phone {
+        Ok(format!("{android_id}-{phone}"))
     } else {
-        trimmed.to_string()
+        Ok(android_id)
     }
+}
+
+pub fn official_api_profile(state: &AppState, android_id: String) -> Result<ApiProfile> {
+    Ok(ApiProfile {
+        id: "official".to_string(),
+        name: "Lingua Lore Official Trial".to_string(),
+        base_url: OFFICIAL_CHAT_BASE_URL.to_string(),
+        model: OFFICIAL_MODEL.to_string(),
+        api_key: official_auth_token(state, android_id)?,
+        use_strict_tools: true,
+    })
+}
+
+#[cfg(not(target_os = "android"))]
+pub fn load_global_setting(state: &AppState, key: &str) -> Result<Option<String>> {
+    let conn = state.app_conn()?;
+    match conn.query_row(
+        "SELECT value FROM global_settings WHERE key = ?1",
+        params![key],
+        |row| row.get::<_, String>(0),
+    ) {
+        Ok(value) => Ok(Some(value)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(err) => Err(err.into()),
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+pub fn save_global_setting(state: &AppState, key: &str, value: &str) -> Result<()> {
+    let conn = state.app_conn()?;
+    conn.execute(
+        "INSERT OR REPLACE INTO global_settings (key, value) VALUES (?1, ?2)",
+        params![key, value],
+    )?;
+    Ok(())
+}
+
+pub fn mask_phone(phone: &str) -> String {
+    let chars: Vec<char> = phone.chars().collect();
+    if chars.len() != 11 {
+        return phone.to_string();
+    }
+    format!(
+        "{}{}{}",
+        chars[0..3].iter().collect::<String>(),
+        "****",
+        chars[7..11].iter().collect::<String>()
+    )
 }

@@ -24,7 +24,7 @@ export function App() {
     appLanguage,
     settingsError,
     setWorlds,
-    setApiProfile,
+    setOfficialAccount,
     setLibraryError,
     setSettingsError
   } = useAppStore();
@@ -34,6 +34,7 @@ export function App() {
   const [libraryOpen, setLibraryOpen] = useState(shouldShowPanels);
   const [settingsOpen, setSettingsOpen] = useState(shouldShowPanels);
   const [availableVersion, setAvailableVersion] = useState("");
+  const [announcement, setAnnouncement] = useState("");
   const [themeMode, setThemeMode] = useState<ThemeMode>(defaultThemeMode);
   const readerSwipeStart = useRef<{ x: number; y: number } | null>(null);
   const librarySwipeStart = useRef<{ x: number; y: number } | null>(null);
@@ -44,6 +45,11 @@ export function App() {
       const result = await api.checkVersion();
       if (result.has_update) {
         setAvailableVersion(result.latest_version);
+        return;
+      }
+      const announcementResult = await api.checkAnnouncement();
+      if (announcementResult.content) {
+        setAnnouncement(announcementResult.content);
       }
     })();
   }, [appLanguage]);
@@ -58,10 +64,10 @@ export function App() {
       .then(setWorlds)
       .catch((err) => setLibraryError(String(err)));
     void api
-      .getApiProfile()
-      .then(setApiProfile)
+      .getOfficialAccount()
+      .then(setOfficialAccount)
       .catch((err) => setSettingsError(String(err)));
-  }, [setApiProfile, setLibraryError, setSettingsError, setWorlds]);
+  }, [setOfficialAccount, setLibraryError, setSettingsError, setWorlds]);
 
   function captureSwipeStart(
     ref: MutableRefObject<{ x: number; y: number } | null>,
@@ -226,6 +232,17 @@ export function App() {
             </p>
             <button className="primary-button" type="button" onClick={() => void api.quitApp()}>
               {t("quitApp")}
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {announcement && !availableVersion ? (
+        <div className="update-overlay" role="dialog" aria-modal="true" aria-labelledby="announcement-title">
+          <div className="update-dialog announcement-dialog">
+            <h2 id="announcement-title">{t("announcementTitle")}</h2>
+            <p className="update-copy announcement-copy">{announcement}</p>
+            <button className="primary-button" type="button" onClick={() => setAnnouncement("")}>
+              {t("gotIt")}
             </button>
           </div>
         </div>

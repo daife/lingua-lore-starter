@@ -1776,6 +1776,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "dirs 5.0.1",
+ "jni",
  "reqwest 0.12.28",
  "rusqlite",
  "serde",

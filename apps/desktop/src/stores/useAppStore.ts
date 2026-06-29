@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { defaultAppLanguage, type AppLanguage } from "../lib/i18n";
 import { defaultTranslationLanguage, type TranslationLanguage } from "../lib/languages";
-import type { ApiProfile, ChoiceOutput, StoryTurnResult, TurnOutput, WorldRecord } from "../lib/types";
+import type { ChoiceOutput, OfficialAccount, StoryTurnResult, TurnOutput, WorldRecord } from "../lib/types";
 
 export interface ReaderTurn {
   id: string;
@@ -13,7 +13,7 @@ interface AppStore {
   worlds: WorldRecord[];
   activeWorld?: WorldRecord;
   activeSceneId?: string;
-  apiProfile?: ApiProfile | null;
+  officialAccount?: OfficialAccount | null;
   turns: ReaderTurn[];
   choices: ChoiceOutput[];
   loading: boolean;
@@ -26,7 +26,7 @@ interface AppStore {
   setWorlds: (worlds: WorldRecord[]) => void;
   setActiveWorld: (world: WorldRecord, sceneId: string, turns?: ReaderTurn[]) => void;
   clearActiveWorld: () => void;
-  setApiProfile: (profile: ApiProfile | null) => void;
+  setOfficialAccount: (account: OfficialAccount | null) => void;
   pushTurn: (result: StoryTurnResult) => void;
   setLoading: (loading: boolean) => void;
   setQuickMode: (quickMode: boolean) => void;
@@ -57,7 +57,7 @@ export const useAppStore = create<AppStore>((set) => ({
   },
   clearActiveWorld: () =>
     set({ activeWorld: undefined, activeSceneId: undefined, turns: [], choices: [] }),
-  setApiProfile: (apiProfile) => set({ apiProfile }),
+  setOfficialAccount: (officialAccount) => set({ officialAccount }),
   pushTurn: (result) =>
     set((state) => ({
       turns: [

@@ -140,6 +140,36 @@ export interface CheckVersionResult {
   latest_version: string;
 }
 
+export interface AnnouncementResult {
+  content: string;
+}
+
+export interface OfficialAccount {
+  android_id: string;
+  phone?: string | null;
+  masked_phone?: string | null;
+  invite_code?: string | null;
+  user_id?: string | null;
+  pool_balance?: number | null;
+  registered: boolean;
+}
+
+export interface DetectedPhone {
+  masked_phone: string;
+}
+
+export interface RegisterOfficialAccountRequest {
+  middle_four: string;
+  invite_code?: string | null;
+}
+
+export interface QuotaInfo {
+  used_tokens: number;
+  daily_limit: number;
+  usage_ratio: number;
+  pool_balance?: number | null;
+}
+
 export interface TranslationResult {
   source_text: string;
   translated_text: string;

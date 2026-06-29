@@ -1,9 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
-  ApiProfile,
+  AnnouncementResult,
   CheckVersionResult,
   CreateWorldRequest,
+  DetectedPhone,
   GenerateWorldDraftRequest,
+  OfficialAccount,
+  QuotaInfo,
+  RegisterOfficialAccountRequest,
   StoryTurnPreview,
   StoryTurnRequest,
   StoryTurnResult,
@@ -22,8 +26,11 @@ export const api = {
     invoke<CreateWorldRequest>("generate_world_draft", { request }),
   getWorldBootstrap: (worldId: string) =>
     invoke<WorldBootstrap>("get_world_bootstrap", { worldId }),
-  getApiProfile: () => invoke<ApiProfile | null>("get_api_profile"),
-  saveApiProfile: (profile: ApiProfile) => invoke<ApiProfile>("save_api_profile", { profile }),
+  getOfficialAccount: () => invoke<OfficialAccount>("get_official_account"),
+  detectRegistrationPhone: () => invoke<DetectedPhone>("detect_registration_phone"),
+  registerOfficialAccount: (request: RegisterOfficialAccountRequest) =>
+    invoke<OfficialAccount>("register_official_account", { request }),
+  refreshQuota: () => invoke<QuotaInfo>("refresh_quota"),
   previewStoryTurn: (input: StoryTurnRequest) =>
     invoke<StoryTurnPreview>("preview_story_turn", { input }),
   commitStoryTurnPreview: (preview: StoryTurnPreview) =>
@@ -43,5 +50,6 @@ export const api = {
       targetLanguage: payload.targetLanguage
     }),
   checkVersion: () => invoke<CheckVersionResult>("check_version"),
+  checkAnnouncement: () => invoke<AnnouncementResult>("check_announcement"),
   quitApp: () => invoke<void>("quit_app")
 };
