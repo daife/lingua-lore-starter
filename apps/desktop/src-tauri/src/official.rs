@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use reqwest::Client;
+use reqwest::{Client, StatusCode};
 use serde::Deserialize;
 use tauri::WebviewWindow;
 #[cfg(not(target_os = "android"))]
@@ -19,9 +19,14 @@ const PHONE_PERMISSION_REQUESTED: &str = "__PERMISSION_REQUESTED__";
 #[derive(Debug, Deserialize)]
 struct RegisterResponse {
     phone: String,
-    invite_code: String,
     user_id: String,
     pool_balance: i64,
+}
+
+#[derive(Debug, Deserialize)]
+struct InviteCodeResponse {
+    phone: String,
+    invite_code: String,
 }
 
 pub fn account(state: &AppState, window: &WebviewWindow) -> Result<OfficialAccount> {
@@ -67,30 +72,64 @@ pub async fn register(
     let response = client
         .post(format!("{}/register", official_api_base_url()))
         .json(&serde_json::json!({
-            "phone": phone,
+            "phone": &phone,
             "invite_code": invite_code
         }))
         .send()
         .await?;
     let status = response.status();
     let text = response.text().await?;
+    if status == StatusCode::CONFLICT && text.contains("phone already registered") {
+        let invite_code = fetch_invite_code(&client, &android_id, &phone).await?;
+        let account = OfficialAccount {
+            android_id,
+            masked_phone: Some(mask_phone(&phone)),
+            phone: Some(phone),
+            invite_code: Some(invite_code),
+            user_id: None,
+            pool_balance: None,
+            registered: true,
+        };
+        save_official_account(state, &account)?;
+        return Ok(account);
+    }
     if !status.is_success() {
         return Err(anyhow!("官方注册失败 ({status}): {text}"));
     }
     let registered: RegisterResponse = serde_json::from_str(&text)
         .map_err(|err| anyhow!("官方注册响应无法解析: {err}; body={text}"))?;
+    let invite_code = fetch_invite_code(&client, &android_id, &registered.phone).await?;
 
     let account = OfficialAccount {
         android_id,
         masked_phone: Some(mask_phone(&registered.phone)),
         phone: Some(registered.phone),
-        invite_code: Some(registered.invite_code),
+        invite_code: Some(invite_code),
         user_id: Some(registered.user_id),
         pool_balance: Some(registered.pool_balance),
         registered: true,
     };
     save_official_account(state, &account)?;
     Ok(account)
+}
+
+async fn fetch_invite_code(client: &Client, android_id: &str, phone: &str) -> Result<String> {
+    let response = client
+        .get(format!("{}/invite-code", official_api_base_url()))
+        .bearer_auth(format!("{android_id}-{phone}"))
+        .send()
+        .await?;
+    let status = response.status();
+    let text = response.text().await?;
+    if !status.is_success() {
+        return Err(anyhow!("邀请码查询失败 ({status}): {text}"));
+    }
+    let invite: InviteCodeResponse = serde_json::from_str(&text)
+        .map_err(|err| anyhow!("邀请码响应无法解析: {err}; body={text}"))?;
+    if invite.phone != phone {
+        return Err(anyhow!("邀请码响应手机号不匹配，无法登录官方账号。"));
+    }
+    Ok(invite.invite_code)
 }
 
 pub async fn quota(state: &AppState, window: &WebviewWindow) -> Result<QuotaInfo> {
@@ -121,7 +160,7 @@ pub fn android_id(state: &AppState, window: &WebviewWindow) -> Result<String> {
 
 fn normalize_phone(raw: String) -> Result<String> {
     if raw == PHONE_PERMISSION_REQUESTED {
-        return Err(anyhow!("已申请手机号读取权限，请授权后再次点击注册。"));
+        return Err(anyhow!("已申请手机号验证权限，请授权后再次点击验证手机号。"));
     }
     let digits: String = raw.chars().filter(|ch| ch.is_ascii_digit()).collect();
     let normalized = if digits.len() > 11 {
@@ -130,7 +169,7 @@ fn normalize_phone(raw: String) -> Result<String> {
         digits
     };
     if normalized.len() != 11 {
-        return Err(anyhow!("无法从主卡读取稳定手机号，不能注册官方账号。"));
+        return Err(anyhow!("无法稳定验证本机手机号，不能注册或登录官方账号。"));
     }
     Ok(normalized)
 }

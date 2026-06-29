@@ -1,5 +1,5 @@
 import { type MutableRefObject, type PointerEvent, useEffect, useRef, useState } from "react";
-import { BookOpen, Library, Moon, Settings, Sun } from "lucide-react";
+import { BookOpen, Library, Moon, Sun } from "lucide-react";
 import { WorldLibraryPage } from "../pages/WorldLibraryPage";
 import { ReaderPage } from "../pages/ReaderPage";
 import { SettingsPanel } from "../pages/SettingsPage";
@@ -209,10 +209,6 @@ export function App() {
             settingsSwipeStart.current = null;
           }}
         />
-        <div className="section-title">
-          <Settings size={16} />
-          <span>{t("settings")}</span>
-        </div>
         <SettingsPanel />
         {settingsError ? (
           <div className="error-box" role="alert">

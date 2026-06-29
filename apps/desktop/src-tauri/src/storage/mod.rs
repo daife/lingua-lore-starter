@@ -417,12 +417,22 @@ pub fn load_official_account(state: &AppState, android_id: String) -> Result<Off
         let invite_code: String = row.get(1)?;
         let user_id: String = row.get(2)?;
         let pool_balance: i64 = row.get(3)?;
+        let invite_code = if invite_code.is_empty() {
+            None
+        } else {
+            Some(invite_code)
+        };
+        let user_id = if user_id.is_empty() {
+            None
+        } else {
+            Some(user_id)
+        };
         Ok(OfficialAccount {
             android_id,
             masked_phone: Some(mask_phone(&phone)),
             phone: Some(phone),
-            invite_code: Some(invite_code),
-            user_id: Some(user_id),
+            invite_code,
+            user_id,
             pool_balance: Some(pool_balance),
             registered: true,
         })
@@ -444,14 +454,8 @@ pub fn save_official_account(state: &AppState, account: &OfficialAccount) -> Res
         .phone
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("registered phone is required"))?;
-    let invite_code = account
-        .invite_code
-        .as_deref()
-        .ok_or_else(|| anyhow::anyhow!("invite code is required"))?;
-    let user_id = account
-        .user_id
-        .as_deref()
-        .ok_or_else(|| anyhow::anyhow!("user id is required"))?;
+    let invite_code = account.invite_code.as_deref().unwrap_or("");
+    let user_id = account.user_id.as_deref().unwrap_or("");
     let pool_balance = account.pool_balance.unwrap_or(0);
     let conn = state.app_conn()?;
     conn.execute(
