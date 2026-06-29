@@ -4,7 +4,11 @@
 
 ---
 
-Lingua Lore is an immersive foreign-language interactive fiction app built with Tauri, React, Rust, SQLite, and DeepSeek-compatible chat completions. It turns player choices and free-text actions into structured story turns, then persists the world state locally so characters, memories, relationships, and scene status can continue across sessions.
+Lingua Lore Starter is the ready-to-try Android edition of Lingua Lore. It is designed for first-time users who want the official experience without preparing their own model endpoint, API key, or desktop build pipeline.
+
+This repository only targets Android builds. The app uses the official trial service by default so new users can install it, create a world, and start reading immediately.
+
+If you want to use your own API, custom base URL, or self-hosted model relay, please use [daife/lingua-lore](https://github.com/daife/lingua-lore) instead.
 
 ## Product Names
 
@@ -16,6 +20,8 @@ Lingua Lore is an immersive foreign-language interactive fiction app built with 
 
 ## What It Does
 
+- Works out of the box with the official trial service.
+- Focuses on a beginner-friendly Android experience.
 - Creates reusable story worlds from manual input or AI-assisted world drafts.
 - Runs interactive story turns with exactly three branch choices plus free-text player actions.
 - Stores every world in its own local SQLite database.
@@ -52,8 +58,8 @@ Core topics:
 
 ## Current Stack
 
-- Tauri + Rust backend
+- Android-only Tauri + Rust backend
 - React + Vite frontend
 - SQLite storage
-- DeepSeek Chat Completions with an OpenAI-compatible request shape
+- Official Lingua Lore trial API relay
 - Youdao public dictionary endpoint for selection translation

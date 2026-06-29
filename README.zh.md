@@ -4,7 +4,11 @@
 
 ---
 
-语境传说是一款沉浸式外语互动阅读应用，使用 Tauri、React、Rust、SQLite 和兼容 DeepSeek 的 Chat Completions 构建。它将玩家选择和自由文本行动转化为结构化故事回合，并把世界状态保存在本地，让角色、记忆、关系和场景状态可以跨会话延续。
+语境传说 Starter 是语境传说的即开即用 Android 试用版。它面向第一次体验的新手用户，默认接入官方服务，不需要提前准备模型接口、API Key 或桌面端构建环境。
+
+本仓库只构建 Android 版本。安装后即可使用官方试用额度创建世界、开始互动阅读，并体验官方推荐流程。
+
+如果你需要使用自己的 API、自定义 base URL 或自建模型转发服务，请移步 [daife/lingua-lore](https://github.com/daife/lingua-lore)。
 
 ## 产品名称
 
@@ -16,6 +20,8 @@
 
 ## 功能概览
 
+- 默认接入官方试用服务，即开即用。
+- 面向新手试用，优先提供清晰、低门槛的 Android 体验。
 - 通过手动输入或 AI 辅助草稿创建可复用故事世界。
 - 支持每回合三个分支选择，也支持玩家自由文本行动。
 - 每个世界都保存在独立的本地 SQLite 数据库中。
@@ -52,8 +58,8 @@ English topics:
 
 ## 当前技术栈
 
-- Tauri + Rust 后端
+- Android-only Tauri + Rust 后端
 - React + Vite 前端
 - SQLite 存储
-- DeepSeek Chat Completions（兼容 OpenAI 请求结构）
+- 语境传说官方试用 API 转发服务
 - 有道词典公共接口（划词翻译）
