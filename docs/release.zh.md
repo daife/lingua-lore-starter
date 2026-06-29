@@ -75,3 +75,6 @@ $exe = "apps/desktop/src-tauri/target/release/bundle/nsis/Lingua Lore_0.1.x_x64-
 $apk = "apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/Lingua Lore_0.1.x_android-arm64.apk"
 gh release create v0.1.x --title "Lingua Lore v0.1.x" --notes "Local release notes." "$msi" "$exe" "$apk"
 ```
+
+GitHub release asset 的下载文件名可能会把空格显示为点号，例如
+`Lingua.Lore_0.1.x_android-arm64.apk`。这是 GitHub 对下载链接的规范化结果，发布链接保留点号即可。

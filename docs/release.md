@@ -75,3 +75,6 @@ $exe = "apps/desktop/src-tauri/target/release/bundle/nsis/Lingua Lore_0.1.x_x64-
 $apk = "apps/desktop/src-tauri/gen/android/app/build/outputs/apk/universal/release/Lingua Lore_0.1.x_android-arm64.apk"
 gh release create v0.1.x --title "Lingua Lore v0.1.x" --notes "Local release notes." "$msi" "$exe" "$apk"
 ```
+
+GitHub release asset download names may show spaces as dots, for example
+`Lingua.Lore_0.1.x_android-arm64.apk`. This is GitHub's normalized download link behavior, and the release link can keep the dots.

@@ -1,6 +1,6 @@
 [package]
 name = "lingua-lore"
-version = "0.1.21"
+version = "0.1.22"
 description = "Immersive role-playing novel engine with independent selection translation"
 authors = ["Lingua Lore"]
 edition = "2021"

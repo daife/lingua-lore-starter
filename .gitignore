@@ -16,6 +16,7 @@ apps/desktop/src-tauri/gen/*
 apps/desktop/src-tauri/gen/android/*
 !apps/desktop/src-tauri/gen/android/app/
 apps/desktop/src-tauri/gen/android/app/*
+!apps/desktop/src-tauri/gen/android/app/proguard-rules.pro
 !apps/desktop/src-tauri/gen/android/app/src/
 apps/desktop/src-tauri/gen/android/app/src/*
 !apps/desktop/src-tauri/gen/android/app/src/main/
