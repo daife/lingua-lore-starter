@@ -94,16 +94,6 @@ button {
   transform: translateX(100%);
 }
 
-.panel-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 19;
-  border: 0;
-  background: transparent;
-  padding: 0;
-  touch-action: pan-y;
-}
-
 .update-overlay {
   position: fixed;
   inset: 0;

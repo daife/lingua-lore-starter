@@ -9,6 +9,7 @@ import { useAppStore } from "../stores/useAppStore";
 
 const SWIPE_DISTANCE = 86;
 const SWIPE_AXIS_RATIO = 1.35;
+const POST_SWIPE_CLICK_SUPPRESSION_MS = 250;
 type ThemeMode = "day" | "night";
 
 function defaultThemeMode(): ThemeMode {
@@ -37,6 +38,16 @@ export function App() {
   const [announcement, setAnnouncement] = useState("");
   const [themeMode, setThemeMode] = useState<ThemeMode>(defaultThemeMode);
   const shellSwipeStart = useRef<{ x: number; y: number; identifier: number } | null>(null);
+  const suppressClickUntil = useRef(0);
+  const panelState = useRef({ libraryOpen, settingsOpen });
+  const sidebarRef = useRef<HTMLElement | null>(null);
+  const inspectorRef = useRef<HTMLElement | null>(null);
+
+  function setPanels(next: { libraryOpen: boolean; settingsOpen: boolean }) {
+    panelState.current = next;
+    setLibraryOpen(next.libraryOpen);
+    setSettingsOpen(next.settingsOpen);
+  }
 
   useEffect(() => {
     void (async () => {
@@ -67,22 +78,43 @@ export function App() {
       .catch((err) => setSettingsError(String(err)));
   }, [setOfficialAccount, setLibraryError, setSettingsError, setWorlds]);
 
+  useEffect(() => {
+    panelState.current = { libraryOpen, settingsOpen };
+  }, [libraryOpen, settingsOpen]);
+
   function applyHorizontalSwipe(deltaX: number) {
+    suppressClickUntil.current = performance.now() + POST_SWIPE_CLICK_SUPPRESSION_MS;
+    const current = panelState.current;
     if (deltaX > 0) {
-      if (settingsOpen) {
-        setSettingsOpen(false);
+      if (current.settingsOpen) {
+        setPanels({ libraryOpen: current.libraryOpen, settingsOpen: false });
       } else {
-        setLibraryOpen(true);
-        setSettingsOpen(false);
+        setPanels({ libraryOpen: true, settingsOpen: false });
       }
     } else if (deltaX < 0) {
-      if (libraryOpen) {
-        setLibraryOpen(false);
+      if (current.libraryOpen) {
+        setPanels({ libraryOpen: false, settingsOpen: current.settingsOpen });
       } else {
-        setSettingsOpen(true);
-        setLibraryOpen(false);
+        setPanels({ libraryOpen: false, settingsOpen: true });
       }
     }
+  }
+
+  function closeSidePanels() {
+    setPanels({ libraryOpen: false, settingsOpen: false });
+  }
+
+  function isInsideOpenPanel(target: EventTarget | null) {
+    const node = target instanceof Node ? target : null;
+    if (!node) {
+      return false;
+    }
+    const current = panelState.current;
+    return (
+      (current.libraryOpen && sidebarRef.current?.contains(node)) ||
+      (current.settingsOpen && inspectorRef.current?.contains(node)) ||
+      false
+    );
   }
 
   useEffect(() => {
@@ -122,17 +154,34 @@ export function App() {
       }
     }
 
+    function handleClick(event: MouseEvent) {
+      if (performance.now() <= suppressClickUntil.current) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
+      const current = panelState.current;
+      if ((!current.libraryOpen && !current.settingsOpen) || isInsideOpenPanel(event.target)) {
+        return;
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closeSidePanels();
+    }
+
     document.addEventListener("touchstart", handleTouchStart, { capture: true, passive: true });
     document.addEventListener("touchmove", handleTouchMove, { capture: true, passive: true });
     document.addEventListener("touchend", handleTouchEnd, { capture: true, passive: true });
     document.addEventListener("touchcancel", handleTouchEnd, { capture: true, passive: true });
+    document.addEventListener("click", handleClick, true);
     return () => {
       document.removeEventListener("touchstart", handleTouchStart, { capture: true });
       document.removeEventListener("touchmove", handleTouchMove, { capture: true });
       document.removeEventListener("touchend", handleTouchEnd, { capture: true });
       document.removeEventListener("touchcancel", handleTouchEnd, { capture: true });
+      document.removeEventListener("click", handleClick, true);
     };
-  }, [libraryOpen, settingsOpen]);
+  }, []);
 
   function handleShellSwipeProgress(clientX: number, clientY: number, identifier: number) {
     const start = shellSwipeStart.current;
@@ -172,13 +221,7 @@ export function App() {
         settingsOpen ? "" : "settings-collapsed"
       ].filter(Boolean).join(" ")}
     >
-      {libraryOpen || settingsOpen ? (
-        <div
-          className="panel-backdrop"
-          aria-hidden="true"
-        />
-      ) : null}
-      <aside className="sidebar" aria-label={t("worldLibrary")} aria-hidden={!libraryOpen}>
+      <aside ref={sidebarRef} className="sidebar" aria-label={t("worldLibrary")} aria-hidden={!libraryOpen}>
         <div className="brand">
           <BookOpen size={22} />
           <div>
@@ -205,7 +248,7 @@ export function App() {
         {activeWorld ? <ReaderPage /> : <div className="empty-reader">{t("emptyReader")}</div>}
       </section>
 
-      <aside className="inspector" aria-label={t("settingsAndStatus")} aria-hidden={!settingsOpen}>
+      <aside ref={inspectorRef} className="inspector" aria-label={t("settingsAndStatus")} aria-hidden={!settingsOpen}>
         <SettingsPanel />
         {settingsError ? (
           <div className="error-box" role="alert">
