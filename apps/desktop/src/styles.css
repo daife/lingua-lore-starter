@@ -60,6 +60,7 @@ button {
   background: #ebe6db;
   border-right: 1px solid #d4cbbd;
   transition: transform 0.22s ease;
+  touch-action: pan-y;
 }
 
 .sidebar {
@@ -100,7 +101,7 @@ button {
   border: 0;
   background: transparent;
   padding: 0;
-  touch-action: manipulation;
+  touch-action: pan-y;
 }
 
 .update-overlay {

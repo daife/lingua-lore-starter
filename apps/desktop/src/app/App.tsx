@@ -36,7 +36,7 @@ export function App() {
   const [availableVersion, setAvailableVersion] = useState("");
   const [announcement, setAnnouncement] = useState("");
   const [themeMode, setThemeMode] = useState<ThemeMode>(defaultThemeMode);
-  const shellSwipeStart = useRef<{ x: number; y: number } | null>(null);
+  const shellSwipeStart = useRef<{ x: number; y: number; pointerId: number } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -82,29 +82,17 @@ export function App() {
     if (shouldIgnoreSwipeStart(event)) {
       return;
     }
-    shellSwipeStart.current = { x: event.clientX, y: event.clientY };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    shellSwipeStart.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
   }
 
-  function readShellHorizontalSwipe(event: PointerEvent<HTMLElement>) {
-    const start = shellSwipeStart.current;
-    shellSwipeStart.current = null;
-    if (!start) {
-      return 0;
+  function releaseShellPointer(event: PointerEvent<HTMLElement>, pointerId: number) {
+    if (event.currentTarget.hasPointerCapture(pointerId)) {
+      event.currentTarget.releasePointerCapture(pointerId);
     }
-    const selection = window.getSelection()?.toString().trim();
-    if (selection) {
-      return 0;
-    }
-    const deltaX = event.clientX - start.x;
-    const deltaY = event.clientY - start.y;
-    if (Math.abs(deltaX) < SWIPE_DISTANCE || Math.abs(deltaX) < Math.abs(deltaY) * SWIPE_AXIS_RATIO) {
-      return 0;
-    }
-    return deltaX;
   }
 
-  function handleShellSwipeEnd(event: PointerEvent<HTMLElement>) {
-    const deltaX = readShellHorizontalSwipe(event);
+  function applyHorizontalSwipe(deltaX: number) {
     if (deltaX > 0) {
       if (settingsOpen) {
         setSettingsOpen(false);
@@ -119,6 +107,36 @@ export function App() {
         setSettingsOpen(true);
         setLibraryOpen(false);
       }
+    }
+  }
+
+  function handleShellSwipeProgress(event: PointerEvent<HTMLElement>) {
+    const start = shellSwipeStart.current;
+    if (!start) {
+      return;
+    }
+    const selection = window.getSelection()?.toString().trim();
+    if (selection) {
+      shellSwipeStart.current = null;
+      releaseShellPointer(event, start.pointerId);
+      return;
+    }
+    const deltaX = event.clientX - start.x;
+    const deltaY = event.clientY - start.y;
+    if (Math.abs(deltaX) < SWIPE_DISTANCE || Math.abs(deltaX) < Math.abs(deltaY) * SWIPE_AXIS_RATIO) {
+      return;
+    }
+    applyHorizontalSwipe(deltaX);
+    shellSwipeStart.current = null;
+    releaseShellPointer(event, start.pointerId);
+  }
+
+  function finishShellSwipe(event: PointerEvent<HTMLElement>) {
+    handleShellSwipeProgress(event);
+    const start = shellSwipeStart.current;
+    if (start) {
+      shellSwipeStart.current = null;
+      releaseShellPointer(event, start.pointerId);
     }
   }
 
@@ -140,11 +158,10 @@ export function App() {
         libraryOpen ? "" : "library-collapsed",
         settingsOpen ? "" : "settings-collapsed"
       ].filter(Boolean).join(" ")}
-      onPointerDown={captureShellSwipeStart}
-      onPointerUp={handleShellSwipeEnd}
-      onPointerCancel={() => {
-        shellSwipeStart.current = null;
-      }}
+      onPointerDownCapture={captureShellSwipeStart}
+      onPointerMoveCapture={handleShellSwipeProgress}
+      onPointerUpCapture={finishShellSwipe}
+      onPointerCancelCapture={finishShellSwipe}
     >
       {libraryOpen || settingsOpen ? (
         <div
