@@ -55,12 +55,14 @@ button {
   top: 0;
   bottom: 0;
   z-index: 20;
+  height: 100dvh;
   min-width: 0;
   padding: 18px;
   background: #ebe6db;
   border-right: 1px solid #d4cbbd;
   transition: transform 0.22s ease;
   touch-action: pan-y;
+  will-change: transform;
 }
 
 .sidebar {
@@ -69,6 +71,7 @@ button {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding-top: 24px;
   transform: translateX(0);
 }
 
@@ -299,12 +302,13 @@ button {
 }
 
 .brand {
+  flex: 0 0 auto;
   display: flex;
   justify-content: center;
   gap: 12px;
   align-items: center;
-  margin-top: 22px;
-  margin-bottom: 26px;
+  margin-top: 0;
+  margin-bottom: 24px;
   text-align: center;
 }
 
@@ -322,10 +326,11 @@ button {
 }
 
 .section-title {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 18px 0 12px;
+  margin: 0 0 12px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -471,6 +476,7 @@ button {
   min-height: 0;
   flex-direction: column;
   gap: 12px;
+  overflow: hidden;
 }
 
 .world-form,
@@ -895,19 +901,6 @@ select:focus {
 
   .story-header {
     padding: 24px 56px 10px 14px;
-  }
-
-  .sidebar {
-    padding-top: 12px;
-  }
-
-  .sidebar .brand {
-    margin-top: 2px;
-    margin-bottom: 10px;
-  }
-
-  .sidebar > .section-title {
-    margin-top: 8px;
   }
 
   .world-form-card {

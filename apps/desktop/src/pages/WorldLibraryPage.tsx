@@ -224,8 +224,6 @@ export function WorldLibraryPage() {
         language_level: normalDifficultyLabel(selectedLanguage),
         characters: [normalizePlayerCharacter(draft.characters[0])]
       });
-      setShowGenrePicker(false);
-      setCustomGenre("");
     } catch (err) {
       setLibraryError(String(err));
     } finally {

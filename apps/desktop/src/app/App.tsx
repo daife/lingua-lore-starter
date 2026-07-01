@@ -9,7 +9,6 @@ import { useAppStore } from "../stores/useAppStore";
 
 const SWIPE_DISTANCE = 86;
 const SWIPE_AXIS_RATIO = 1.35;
-const POST_SWIPE_CLICK_SUPPRESSION_MS = 250;
 type ThemeMode = "day" | "night";
 
 function defaultThemeMode(): ThemeMode {
@@ -37,8 +36,7 @@ export function App() {
   const [availableVersion, setAvailableVersion] = useState("");
   const [announcement, setAnnouncement] = useState("");
   const [themeMode, setThemeMode] = useState<ThemeMode>(defaultThemeMode);
-  const shellSwipeStart = useRef<{ x: number; y: number; identifier: number } | null>(null);
-  const suppressClickUntil = useRef(0);
+  const shellSwipeStart = useRef<{ x: number; y: number; pointerId: number } | null>(null);
   const panelState = useRef({ libraryOpen, settingsOpen });
   const sidebarRef = useRef<HTMLElement | null>(null);
   const inspectorRef = useRef<HTMLElement | null>(null);
@@ -83,7 +81,6 @@ export function App() {
   }, [libraryOpen, settingsOpen]);
 
   function applyHorizontalSwipe(deltaX: number) {
-    suppressClickUntil.current = performance.now() + POST_SWIPE_CLICK_SUPPRESSION_MS;
     const current = panelState.current;
     if (deltaX > 0) {
       if (current.settingsOpen) {
@@ -118,74 +115,62 @@ export function App() {
   }
 
   useEffect(() => {
-    function handleTouchStart(event: TouchEvent) {
-      if (event.touches.length !== 1) {
+    function handlePointerDown(event: PointerEvent) {
+      if (!event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) {
         shellSwipeStart.current = null;
-        return;
-      }
-      const touch = event.touches[0];
-      shellSwipeStart.current = { x: touch.clientX, y: touch.clientY, identifier: touch.identifier };
-    }
-
-    function findActiveTouch(event: TouchEvent) {
-      const start = shellSwipeStart.current;
-      if (!start) {
-        return null;
-      }
-      return Array.from(event.changedTouches).find((touch) => touch.identifier === start.identifier) ?? null;
-    }
-
-    function handleTouchMove(event: TouchEvent) {
-      const touch = findActiveTouch(event);
-      if (!touch) {
-        return;
-      }
-      handleShellSwipeProgress(touch.clientX, touch.clientY, touch.identifier);
-    }
-
-    function handleTouchEnd(event: TouchEvent) {
-      const touch = findActiveTouch(event);
-      if (touch) {
-        handleShellSwipeProgress(touch.clientX, touch.clientY, touch.identifier);
-      }
-      const start = shellSwipeStart.current;
-      if (start && (!touch || start.identifier === touch.identifier)) {
-        shellSwipeStart.current = null;
-      }
-    }
-
-    function handleClick(event: MouseEvent) {
-      if (performance.now() <= suppressClickUntil.current) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
         return;
       }
       const current = panelState.current;
-      if ((!current.libraryOpen && !current.settingsOpen) || isInsideOpenPanel(event.target)) {
+      if ((current.libraryOpen || current.settingsOpen) && !isInsideOpenPanel(event.target)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        shellSwipeStart.current = null;
+        closeSidePanels();
         return;
       }
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      closeSidePanels();
+      shellSwipeStart.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
     }
 
-    document.addEventListener("touchstart", handleTouchStart, { capture: true, passive: true });
-    document.addEventListener("touchmove", handleTouchMove, { capture: true, passive: true });
-    document.addEventListener("touchend", handleTouchEnd, { capture: true, passive: true });
-    document.addEventListener("touchcancel", handleTouchEnd, { capture: true, passive: true });
-    document.addEventListener("click", handleClick, true);
+    function handlePointerMove(event: PointerEvent) {
+      const start = shellSwipeStart.current;
+      if (!start || start.pointerId !== event.pointerId) {
+        return;
+      }
+      handleShellSwipeProgress(event.clientX, event.clientY, event.pointerId);
+    }
+
+    function handlePointerUp(event: PointerEvent) {
+      const start = shellSwipeStart.current;
+      if (!start || start.pointerId !== event.pointerId) {
+        return;
+      }
+      handleShellSwipeProgress(event.clientX, event.clientY, event.pointerId);
+      if (shellSwipeStart.current?.pointerId === event.pointerId) {
+        shellSwipeStart.current = null;
+      }
+    }
+
+    function handlePointerCancel(event: PointerEvent) {
+      if (shellSwipeStart.current?.pointerId === event.pointerId) {
+        shellSwipeStart.current = null;
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown, { capture: true });
+    document.addEventListener("pointermove", handlePointerMove, { capture: true, passive: true });
+    document.addEventListener("pointerup", handlePointerUp, { capture: true, passive: true });
+    document.addEventListener("pointercancel", handlePointerCancel, { capture: true, passive: true });
     return () => {
-      document.removeEventListener("touchstart", handleTouchStart, { capture: true });
-      document.removeEventListener("touchmove", handleTouchMove, { capture: true });
-      document.removeEventListener("touchend", handleTouchEnd, { capture: true });
-      document.removeEventListener("touchcancel", handleTouchEnd, { capture: true });
-      document.removeEventListener("click", handleClick, true);
+      document.removeEventListener("pointerdown", handlePointerDown, { capture: true });
+      document.removeEventListener("pointermove", handlePointerMove, { capture: true });
+      document.removeEventListener("pointerup", handlePointerUp, { capture: true });
+      document.removeEventListener("pointercancel", handlePointerCancel, { capture: true });
     };
   }, []);
 
-  function handleShellSwipeProgress(clientX: number, clientY: number, identifier: number) {
+  function handleShellSwipeProgress(clientX: number, clientY: number, pointerId: number) {
     const start = shellSwipeStart.current;
-    if (!start || start.identifier !== identifier) {
+    if (!start || start.pointerId !== pointerId) {
       return;
     }
     const selection = window.getSelection()?.toString().trim();
