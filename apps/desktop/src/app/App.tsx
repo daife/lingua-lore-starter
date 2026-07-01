@@ -37,7 +37,6 @@ export function App() {
   const [announcement, setAnnouncement] = useState("");
   const [themeMode, setThemeMode] = useState<ThemeMode>(defaultThemeMode);
   const shellSwipeStart = useRef<{ x: number; y: number; identifier: number } | null>(null);
-  const suppressClickUntil = useRef(0);
 
   useEffect(() => {
     void (async () => {
@@ -69,7 +68,6 @@ export function App() {
   }, [setOfficialAccount, setLibraryError, setSettingsError, setWorlds]);
 
   function applyHorizontalSwipe(deltaX: number) {
-    suppressClickUntil.current = performance.now() + 120;
     if (deltaX > 0) {
       if (settingsOpen) {
         setSettingsOpen(false);
@@ -115,31 +113,24 @@ export function App() {
 
     function handleTouchEnd(event: TouchEvent) {
       const touch = findActiveTouch(event);
+      if (touch) {
+        handleShellSwipeProgress(touch.clientX, touch.clientY, touch.identifier);
+      }
       const start = shellSwipeStart.current;
       if (start && (!touch || start.identifier === touch.identifier)) {
         shellSwipeStart.current = null;
       }
     }
 
-    function handleClick(event: MouseEvent) {
-      if (performance.now() > suppressClickUntil.current) {
-        return;
-      }
-      event.preventDefault();
-      event.stopImmediatePropagation();
-    }
-
-    document.addEventListener("touchstart", handleTouchStart, { passive: true });
-    document.addEventListener("touchmove", handleTouchMove, { passive: true });
-    document.addEventListener("touchend", handleTouchEnd, { passive: true });
-    document.addEventListener("touchcancel", handleTouchEnd, { passive: true });
-    document.addEventListener("click", handleClick, true);
+    document.addEventListener("touchstart", handleTouchStart, { capture: true, passive: true });
+    document.addEventListener("touchmove", handleTouchMove, { capture: true, passive: true });
+    document.addEventListener("touchend", handleTouchEnd, { capture: true, passive: true });
+    document.addEventListener("touchcancel", handleTouchEnd, { capture: true, passive: true });
     return () => {
-      document.removeEventListener("touchstart", handleTouchStart);
-      document.removeEventListener("touchmove", handleTouchMove);
-      document.removeEventListener("touchend", handleTouchEnd);
-      document.removeEventListener("touchcancel", handleTouchEnd);
-      document.removeEventListener("click", handleClick, true);
+      document.removeEventListener("touchstart", handleTouchStart, { capture: true });
+      document.removeEventListener("touchmove", handleTouchMove, { capture: true });
+      document.removeEventListener("touchend", handleTouchEnd, { capture: true });
+      document.removeEventListener("touchcancel", handleTouchEnd, { capture: true });
     };
   }, [libraryOpen, settingsOpen]);
 
@@ -162,15 +153,6 @@ export function App() {
     shellSwipeStart.current = null;
   }
 
-  function closeSidePanels() {
-    setLibraryOpen(false);
-    setSettingsOpen(false);
-  }
-
-  function handleBackdropClick() {
-    closeSidePanels();
-  }
-
   function toggleThemeMode() {
     setThemeMode((current) => {
       const next = current === "night" ? "day" : "night";
@@ -191,11 +173,9 @@ export function App() {
       ].filter(Boolean).join(" ")}
     >
       {libraryOpen || settingsOpen ? (
-        <button
+        <div
           className="panel-backdrop"
-          type="button"
-          aria-label={t("closeSidePanels")}
-          onClick={handleBackdropClick}
+          aria-hidden="true"
         />
       ) : null}
       <aside className="sidebar" aria-label={t("worldLibrary")} aria-hidden={!libraryOpen}>
