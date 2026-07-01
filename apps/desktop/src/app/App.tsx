@@ -82,14 +82,7 @@ export function App() {
     if (shouldIgnoreSwipeStart(event)) {
       return;
     }
-    event.currentTarget.setPointerCapture(event.pointerId);
     shellSwipeStart.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
-  }
-
-  function releaseShellPointer(event: PointerEvent<HTMLElement>, pointerId: number) {
-    if (event.currentTarget.hasPointerCapture(pointerId)) {
-      event.currentTarget.releasePointerCapture(pointerId);
-    }
   }
 
   function applyHorizontalSwipe(deltaX: number) {
@@ -112,13 +105,12 @@ export function App() {
 
   function handleShellSwipeProgress(event: PointerEvent<HTMLElement>) {
     const start = shellSwipeStart.current;
-    if (!start) {
+    if (!start || start.pointerId !== event.pointerId) {
       return;
     }
     const selection = window.getSelection()?.toString().trim();
     if (selection) {
       shellSwipeStart.current = null;
-      releaseShellPointer(event, start.pointerId);
       return;
     }
     const deltaX = event.clientX - start.x;
@@ -128,15 +120,13 @@ export function App() {
     }
     applyHorizontalSwipe(deltaX);
     shellSwipeStart.current = null;
-    releaseShellPointer(event, start.pointerId);
   }
 
   function finishShellSwipe(event: PointerEvent<HTMLElement>) {
     handleShellSwipeProgress(event);
     const start = shellSwipeStart.current;
-    if (start) {
+    if (start?.pointerId === event.pointerId) {
       shellSwipeStart.current = null;
-      releaseShellPointer(event, start.pointerId);
     }
   }
 
