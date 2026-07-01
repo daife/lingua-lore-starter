@@ -1,4 +1,4 @@
-import { type PointerEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BookOpen, Library, Moon, Sun } from "lucide-react";
 import { WorldLibraryPage } from "../pages/WorldLibraryPage";
 import { ReaderPage } from "../pages/ReaderPage";
@@ -36,7 +36,7 @@ export function App() {
   const [availableVersion, setAvailableVersion] = useState("");
   const [announcement, setAnnouncement] = useState("");
   const [themeMode, setThemeMode] = useState<ThemeMode>(defaultThemeMode);
-  const shellSwipeStart = useRef<{ x: number; y: number; pointerId: number } | null>(null);
+  const shellSwipeStart = useRef<{ x: number; y: number; identifier: number } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -67,24 +67,6 @@ export function App() {
       .catch((err) => setSettingsError(String(err)));
   }, [setOfficialAccount, setLibraryError, setSettingsError, setWorlds]);
 
-  function shouldIgnoreSwipeStart(event: PointerEvent<HTMLElement>) {
-    const target = event.target;
-    if (!(target instanceof Element)) {
-      return false;
-    }
-    return Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
-  }
-
-  function captureShellSwipeStart(event: PointerEvent<HTMLElement>) {
-    if (event.pointerType === "mouse" && event.button !== 0) {
-      return;
-    }
-    if (shouldIgnoreSwipeStart(event)) {
-      return;
-    }
-    shellSwipeStart.current = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
-  }
-
   function applyHorizontalSwipe(deltaX: number) {
     if (deltaX > 0) {
       if (settingsOpen) {
@@ -103,9 +85,58 @@ export function App() {
     }
   }
 
-  function handleShellSwipeProgress(event: PointerEvent<HTMLElement>) {
+  useEffect(() => {
+    function handleTouchStart(event: TouchEvent) {
+      if (event.touches.length !== 1) {
+        shellSwipeStart.current = null;
+        return;
+      }
+      const touch = event.touches[0];
+      shellSwipeStart.current = { x: touch.clientX, y: touch.clientY, identifier: touch.identifier };
+    }
+
+    function findActiveTouch(event: TouchEvent) {
+      const start = shellSwipeStart.current;
+      if (!start) {
+        return null;
+      }
+      return Array.from(event.changedTouches).find((touch) => touch.identifier === start.identifier) ?? null;
+    }
+
+    function handleTouchMove(event: TouchEvent) {
+      const touch = findActiveTouch(event);
+      if (!touch) {
+        return;
+      }
+      handleShellSwipeProgress(touch.clientX, touch.clientY, touch.identifier);
+    }
+
+    function handleTouchEnd(event: TouchEvent) {
+      const touch = findActiveTouch(event);
+      if (touch) {
+        handleShellSwipeProgress(touch.clientX, touch.clientY, touch.identifier);
+      }
+      const start = shellSwipeStart.current;
+      if (start && (!touch || start.identifier === touch.identifier)) {
+        shellSwipeStart.current = null;
+      }
+    }
+
+    document.addEventListener("touchstart", handleTouchStart, { capture: true, passive: true });
+    document.addEventListener("touchmove", handleTouchMove, { capture: true, passive: true });
+    document.addEventListener("touchend", handleTouchEnd, { capture: true, passive: true });
+    document.addEventListener("touchcancel", handleTouchEnd, { capture: true, passive: true });
+    return () => {
+      document.removeEventListener("touchstart", handleTouchStart, { capture: true });
+      document.removeEventListener("touchmove", handleTouchMove, { capture: true });
+      document.removeEventListener("touchend", handleTouchEnd, { capture: true });
+      document.removeEventListener("touchcancel", handleTouchEnd, { capture: true });
+    };
+  }, [libraryOpen, settingsOpen]);
+
+  function handleShellSwipeProgress(clientX: number, clientY: number, identifier: number) {
     const start = shellSwipeStart.current;
-    if (!start || start.pointerId !== event.pointerId) {
+    if (!start || start.identifier !== identifier) {
       return;
     }
     const selection = window.getSelection()?.toString().trim();
@@ -113,21 +144,13 @@ export function App() {
       shellSwipeStart.current = null;
       return;
     }
-    const deltaX = event.clientX - start.x;
-    const deltaY = event.clientY - start.y;
+    const deltaX = clientX - start.x;
+    const deltaY = clientY - start.y;
     if (Math.abs(deltaX) < SWIPE_DISTANCE || Math.abs(deltaX) < Math.abs(deltaY) * SWIPE_AXIS_RATIO) {
       return;
     }
     applyHorizontalSwipe(deltaX);
     shellSwipeStart.current = null;
-  }
-
-  function finishShellSwipe(event: PointerEvent<HTMLElement>) {
-    handleShellSwipeProgress(event);
-    const start = shellSwipeStart.current;
-    if (start?.pointerId === event.pointerId) {
-      shellSwipeStart.current = null;
-    }
   }
 
   function toggleThemeMode() {
@@ -148,10 +171,6 @@ export function App() {
         libraryOpen ? "" : "library-collapsed",
         settingsOpen ? "" : "settings-collapsed"
       ].filter(Boolean).join(" ")}
-      onPointerDownCapture={captureShellSwipeStart}
-      onPointerMoveCapture={handleShellSwipeProgress}
-      onPointerUpCapture={finishShellSwipe}
-      onPointerCancelCapture={finishShellSwipe}
     >
       {libraryOpen || settingsOpen ? (
         <div
