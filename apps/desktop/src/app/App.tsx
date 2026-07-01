@@ -1,4 +1,4 @@
-import { type MutableRefObject, type PointerEvent, useEffect, useRef, useState } from "react";
+import { type PointerEvent, useEffect, useRef, useState } from "react";
 import { BookOpen, Library, Moon, Sun } from "lucide-react";
 import { WorldLibraryPage } from "../pages/WorldLibraryPage";
 import { ReaderPage } from "../pages/ReaderPage";
@@ -36,9 +36,7 @@ export function App() {
   const [availableVersion, setAvailableVersion] = useState("");
   const [announcement, setAnnouncement] = useState("");
   const [themeMode, setThemeMode] = useState<ThemeMode>(defaultThemeMode);
-  const readerSwipeStart = useRef<{ x: number; y: number } | null>(null);
-  const librarySwipeStart = useRef<{ x: number; y: number } | null>(null);
-  const settingsSwipeStart = useRef<{ x: number; y: number } | null>(null);
+  const shellSwipeStart = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -69,24 +67,32 @@ export function App() {
       .catch((err) => setSettingsError(String(err)));
   }, [setOfficialAccount, setLibraryError, setSettingsError, setWorlds]);
 
-  function captureSwipeStart(
-    ref: MutableRefObject<{ x: number; y: number } | null>,
-    event: PointerEvent<HTMLElement>
-  ) {
+  function shouldIgnoreSwipeStart(event: PointerEvent<HTMLElement>) {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return false;
+    }
+    return Boolean(target.closest("input, textarea, select, [contenteditable='true']"));
+  }
+
+  function captureShellSwipeStart(event: PointerEvent<HTMLElement>) {
     if (event.pointerType === "mouse" && event.button !== 0) {
       return;
     }
-    event.currentTarget.setPointerCapture(event.pointerId);
-    ref.current = { x: event.clientX, y: event.clientY };
+    if (shouldIgnoreSwipeStart(event)) {
+      return;
+    }
+    shellSwipeStart.current = { x: event.clientX, y: event.clientY };
   }
 
-  function readHorizontalSwipe(
-    ref: MutableRefObject<{ x: number; y: number } | null>,
-    event: PointerEvent<HTMLElement>
-  ) {
-    const start = ref.current;
-    ref.current = null;
+  function readShellHorizontalSwipe(event: PointerEvent<HTMLElement>) {
+    const start = shellSwipeStart.current;
+    shellSwipeStart.current = null;
     if (!start) {
+      return 0;
+    }
+    const selection = window.getSelection()?.toString().trim();
+    if (selection) {
       return 0;
     }
     const deltaX = event.clientX - start.x;
@@ -97,34 +103,23 @@ export function App() {
     return deltaX;
   }
 
-  function handleReaderSwipeEnd(event: PointerEvent<HTMLElement>) {
-    const deltaX = readHorizontalSwipe(readerSwipeStart, event);
+  function handleShellSwipeEnd(event: PointerEvent<HTMLElement>) {
+    const deltaX = readShellHorizontalSwipe(event);
     if (deltaX > 0) {
-      setLibraryOpen(true);
-      setSettingsOpen(false);
+      if (settingsOpen) {
+        setSettingsOpen(false);
+      } else {
+        setLibraryOpen(true);
+        setSettingsOpen(false);
+      }
     } else if (deltaX < 0) {
-      setSettingsOpen(true);
-      setLibraryOpen(false);
+      if (libraryOpen) {
+        setLibraryOpen(false);
+      } else {
+        setSettingsOpen(true);
+        setLibraryOpen(false);
+      }
     }
-  }
-
-  function handleLibrarySwipeEnd(event: PointerEvent<HTMLElement>) {
-    const deltaX = readHorizontalSwipe(librarySwipeStart, event);
-    if (deltaX < 0) {
-      setLibraryOpen(false);
-    }
-  }
-
-  function handleSettingsSwipeEnd(event: PointerEvent<HTMLElement>) {
-    const deltaX = readHorizontalSwipe(settingsSwipeStart, event);
-    if (deltaX > 0) {
-      setSettingsOpen(false);
-    }
-  }
-
-  function closeSidePanels() {
-    setLibraryOpen(false);
-    setSettingsOpen(false);
   }
 
   function toggleThemeMode() {
@@ -145,25 +140,19 @@ export function App() {
         libraryOpen ? "" : "library-collapsed",
         settingsOpen ? "" : "settings-collapsed"
       ].filter(Boolean).join(" ")}
+      onPointerDown={captureShellSwipeStart}
+      onPointerUp={handleShellSwipeEnd}
+      onPointerCancel={() => {
+        shellSwipeStart.current = null;
+      }}
     >
       {libraryOpen || settingsOpen ? (
-        <button
+        <div
           className="panel-backdrop"
-          type="button"
-          aria-label={t("closeSidePanels")}
-          onPointerDown={closeSidePanels}
+          aria-hidden="true"
         />
       ) : null}
       <aside className="sidebar" aria-label={t("worldLibrary")} aria-hidden={!libraryOpen}>
-        <div
-          className="panel-swipe-zone"
-          aria-hidden="true"
-          onPointerDown={(event) => captureSwipeStart(librarySwipeStart, event)}
-          onPointerUp={handleLibrarySwipeEnd}
-          onPointerCancel={() => {
-            librarySwipeStart.current = null;
-          }}
-        />
         <div className="brand">
           <BookOpen size={22} />
           <div>
@@ -178,15 +167,6 @@ export function App() {
       </aside>
 
       <section className="reader-shell">
-        <div
-          className="reader-swipe-zone"
-          aria-hidden="true"
-          onPointerDown={(event) => captureSwipeStart(readerSwipeStart, event)}
-          onPointerUp={handleReaderSwipeEnd}
-          onPointerCancel={() => {
-            readerSwipeStart.current = null;
-          }}
-        />
         <button
           className="theme-toggle"
           type="button"
@@ -200,15 +180,6 @@ export function App() {
       </section>
 
       <aside className="inspector" aria-label={t("settingsAndStatus")} aria-hidden={!settingsOpen}>
-        <div
-          className="panel-swipe-zone"
-          aria-hidden="true"
-          onPointerDown={(event) => captureSwipeStart(settingsSwipeStart, event)}
-          onPointerUp={handleSettingsSwipeEnd}
-          onPointerCancel={() => {
-            settingsSwipeStart.current = null;
-          }}
-        />
         <SettingsPanel />
         {settingsError ? (
           <div className="error-box" role="alert">

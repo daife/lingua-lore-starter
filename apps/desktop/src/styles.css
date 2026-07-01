@@ -40,7 +40,6 @@ button {
 .shell {
   --library-width: min(84vw, 320px);
   --settings-width: min(84vw, 340px);
-  --swipe-zone-height: 72px;
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -101,28 +100,6 @@ button {
   background: transparent;
   padding: 0;
   touch-action: manipulation;
-}
-
-.reader-swipe-zone,
-.panel-swipe-zone {
-  position: absolute;
-  top: 0;
-  height: var(--swipe-zone-height);
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.reader-swipe-zone {
-  left: 0;
-  right: 0;
-  z-index: 17;
-}
-
-.panel-swipe-zone {
-  left: 0;
-  right: 0;
-  z-index: 1;
 }
 
 .update-overlay {
