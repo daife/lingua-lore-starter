@@ -46,6 +46,7 @@ button {
   min-height: 100dvh;
   height: 100dvh;
   overflow: hidden;
+  touch-action: pan-y;
 }
 
 .sidebar,
