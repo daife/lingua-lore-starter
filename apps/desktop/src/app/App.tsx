@@ -37,6 +37,7 @@ export function App() {
   const [announcement, setAnnouncement] = useState("");
   const [themeMode, setThemeMode] = useState<ThemeMode>(defaultThemeMode);
   const shellSwipeStart = useRef<{ x: number; y: number; identifier: number } | null>(null);
+  const lastHandledSwipeAt = useRef(0);
 
   useEffect(() => {
     void (async () => {
@@ -68,6 +69,7 @@ export function App() {
   }, [setOfficialAccount, setLibraryError, setSettingsError, setWorlds]);
 
   function applyHorizontalSwipe(deltaX: number) {
+    lastHandledSwipeAt.current = Date.now();
     if (deltaX > 0) {
       if (settingsOpen) {
         setSettingsOpen(false);
@@ -153,6 +155,18 @@ export function App() {
     shellSwipeStart.current = null;
   }
 
+  function closeSidePanels() {
+    setLibraryOpen(false);
+    setSettingsOpen(false);
+  }
+
+  function handleBackdropClick() {
+    if (Date.now() - lastHandledSwipeAt.current < 350) {
+      return;
+    }
+    closeSidePanels();
+  }
+
   function toggleThemeMode() {
     setThemeMode((current) => {
       const next = current === "night" ? "day" : "night";
@@ -173,9 +187,11 @@ export function App() {
       ].filter(Boolean).join(" ")}
     >
       {libraryOpen || settingsOpen ? (
-        <div
+        <button
           className="panel-backdrop"
-          aria-hidden="true"
+          type="button"
+          aria-label={t("closeSidePanels")}
+          onClick={handleBackdropClick}
         />
       ) : null}
       <aside className="sidebar" aria-label={t("worldLibrary")} aria-hidden={!libraryOpen}>
